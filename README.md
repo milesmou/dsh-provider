@@ -29,6 +29,8 @@ github:milesmou/dsh-provider#main
 
 在模型选择器中选择相应模型。模型列表在启动、切换接入方式或完成登录时获取，不定时刷新。可用模型和用量以账号权限为准。
 
+WorkBuddy 登录成功不代表直连接口获准调用。若返回 `11128 / unapproved channel`，表示服务端拒绝当前调用渠道；请使用官方客户端，或改用已获授权的 API 接入。第三方应用的官方接入能力见 [WorkBuddy Open API](https://open.workbuddy.cn/docs/openapi)。
+
 **3. 可选配置**
 
 在 `$DSH_HOME/profiles/desktop/cordis.patch.yml` 中配置（其他 profile 替换目录名）：

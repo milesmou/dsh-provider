@@ -131,6 +131,42 @@ test('truncated streams fail instead of silently finishing', async t => {
   await assert.rejects(() => collect(adapter), { code: 'INCOMPLETE_RESPONSE' })
 })
 
+test('channel verification rejection is actionable, preserves request ID, and never retries or leaks the body', async t => {
+  for (const nested of [false, true]) {
+    let calls = 0
+    const adapter = await fixture(t, (_req, res) => {
+      calls++
+      const error = { code: nested ? '11128' : 11128, msg: 'Illegal API invocation from an unapproved channel',
+        requestId: 'provider-request-123', displayTips: 'private server detail ck_test-only-secret' }
+      res.writeHead(400, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(nested ? { error } : error))
+    })
+    await assert.rejects(() => collect(adapter), error => {
+      assert.equal(error.code, 'CHANNEL_RESTRICTED')
+      assert.equal(error.failure.status, 400)
+      assert.equal(error.failure.requestId, 'provider-request-123')
+      assert.match(error.message, /渠道校验/)
+      assert.ok(!error.message.includes('private server detail'))
+      assert.ok(!error.message.includes('ck_test-only-secret'))
+      assert.equal(error.failure.providerRetryAfterMs, undefined)
+      return true
+    })
+    assert.equal(calls, 1)
+  }
+})
+
+test('other 11128 responses retain their original diagnostic', async t => {
+  const adapter = await fixture(t, (_req, res) => {
+    res.writeHead(400, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ code: 11128, msg: 'conversation id missing' }))
+  })
+  await assert.rejects(() => collect(adapter), error => {
+    assert.equal(error.code, 'HTTP_ERROR')
+    assert.match(error.message, /conversation id missing/)
+    return true
+  })
+})
+
 test('cancellation and deadline abort an idle stream', async t => {
   for (const cancel of [true, false]) {
     const adapter = await fixture(t, (_req, res) => {
