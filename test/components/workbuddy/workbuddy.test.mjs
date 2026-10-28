@@ -6,6 +6,11 @@ import { workbuddyRequest } from '../../../lib/components/workbuddy/workbuddy-re
 import { Config } from '../../../lib/components/workbuddy/config.js'
 import { BlockAssembler } from '@deepseek-ai/dsh-llm'
 import { REMOTE } from '../../../lib/components/workbuddy/remote.js'
+import { Context } from '@deepseek-ai/cordis'
+import { LocalCredentialProvider } from '@deepseek-ai/dsh-credentials-local'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const desktop = (accessToken = 'desktop-secret') => ({ account: { uid: 'user', enterpriseId: 'team' },
   auth: { accessToken, refreshToken: 'desktop-refresh-never-used', expiresAt: Date.now() + 3600000, domain: 'tenant' } })
@@ -25,6 +30,50 @@ function store() {
   }
 }
 const envelope = data => Response.json({ code: 0, data })
+
+test('personal browser login and token renewal persist through the real DSH credential store', async t => {
+  const home = await mkdtemp(join(tmpdir(), 'dsh-workbuddy-login-'))
+  const ctx = new Context()
+  t.after(async () => { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }) })
+  await ctx.plugin(LocalCredentialProvider, { dshHome: home, watch: false }).await()
+  let renewals = 0
+  const session = new WorkBuddySession('cn', () => ctx.credentials, () => {}, async url => {
+    if (url.includes('/auth/state')) return envelope({ state: 'state', authUrl: 'https://www.workbuddy.cn/login' })
+    if (url.includes('/auth/token/refresh')) { renewals++; return envelope({ accessToken: 'renewed-test-token', expiresIn: 3600 }) }
+    if (url.includes('/auth/token?')) return envelope({ accessToken: 'test-token', refreshToken: 'test-refresh', expiresIn: 3600 })
+    if (url.includes('/login/account')) return envelope({ uid: 'personal-user' })
+    throw new Error('unexpected URL')
+  }, async () => desktop({ $wbEncrypted: 1 }))
+  t.after(() => session.dispose())
+  await session.beginLogin()
+  assert.deepEqual(await session.pollLogin(), { pending: false })
+  assert.deepEqual(await session.status(), { configured: true, source: 'browser' })
+  const record = await ctx.credentials.readRecord(session.key)
+  assert.equal(record.payload.enterpriseId, undefined)
+  assert.ok(!Object.hasOwn(record.payload, 'enterpriseId'))
+  await ctx.credentials.modifyRecord(session.key, async current => ({ ...current, payload: { ...current.payload, expires: 1 } }))
+  assert.equal((await session.authenticate()).apiKey, 'renewed-test-token')
+  assert.equal(renewals, 1)
+  assert.equal((await session.authenticate()).headers['X-Enterprise-Id'], undefined)
+})
+
+test('browser sign-in reports credential storage failures without exposing tokens or filesystem errors', async () => {
+  const credentials = store()
+  credentials.modifyRecord = async () => { throw new Error('private-secret at private-path') }
+  const session = new WorkBuddySession('cn', () => credentials, () => {}, async url => {
+    if (url.includes('/auth/state')) return envelope({ state: 'state', authUrl: 'https://www.workbuddy.cn/login' })
+    if (url.includes('/auth/token?')) return envelope({ accessToken: 'private-secret' })
+    return envelope({ uid: 'personal-user' })
+  })
+  try {
+    await session.beginLogin()
+    const result = await session.pollLogin()
+    assert.equal(result.pending, false)
+    assert.match(result.issue, /无法保存到 DSH 凭据存储/)
+    assert.ok(!JSON.stringify(result).includes('private-'))
+    assert.equal(credentials.records.size, 0)
+  } finally { session.dispose() }
+})
 
 test('desktop auth paths support Windows, macOS, and Linux; encrypted and expired sign-ins explain recovery', () => {
   assert.match(desktopAuthPath('cn', '/home/me', 'win32').replaceAll('\\', '/'), /AppData\/Local\/CodeBuddyExtension\/Data\/Public\/auth\/workbuddy-desktop.info$/)

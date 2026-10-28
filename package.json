@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Component-based model providers for DeepSeek Harness, starting with WorkBuddy.",
   "repository": {
     "type": "git",
@@ -78,12 +78,12 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/dsh-credentials": "0.2.1-rc.2",
     "@deepseek-ai/dsh-launch-environment": "0.2.1-rc.2",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "~3.18.5",
-    "@deepseek-ai/dsh-credentials": "0.2.1-rc.2",
-    "react": "^18.2.0",
-    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
+    "react": "^18.2.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
@@ -95,16 +95,17 @@
     "@deepseek-ai/dsh-client-ui-settings-models": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",
     "@deepseek-ai/dsh-credentials": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-credentials-local": "0.2.1-rc.2",
     "@deepseek-ai/dsh-launch-environment": "0.2.1-rc.2",
     "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
     "@deepseek-ai/dsh-settings": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "~3.18.5",
     "@types/node": "^24.0.0",
     "@types/react": "^18.3.0",
     "esbuild": "^0.25.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "typescript": "^5.9.3",
-    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
+    "typescript": "^5.9.3"
   }
 }

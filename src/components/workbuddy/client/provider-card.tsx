@@ -85,7 +85,6 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
       <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>复用本机登录态，工具由 DSH 执行。若本机凭据已加密，请使用浏览器登录。模型列表在启动、切换接入方式或完成登录时获取。</p>
       {state?.login?.issue ? <p role="note" style={{ margin: 0, fontSize: 12 }}>{state.login.issue}</p> : null}
       <div style={{ display: 'flex', gap: 10 }}>
-        <button style={control} type="button" disabled={busy || polling} onClick={() => { void command('desktop') }}>使用本机登录</button>
         <button style={control} type="button" disabled={busy || polling} onClick={() => { void command('login') }}>浏览器登录</button>
         {polling ? <button style={control} type="button" disabled={busy} onClick={() => { void command('cancel') }}>取消登录</button> : null}
       </div>

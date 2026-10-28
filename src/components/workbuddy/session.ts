@@ -4,7 +4,7 @@ import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
-import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
+import type { CredentialProvider, GrantRecord } from '@deepseek-ai/dsh-credentials'
 import { SETTINGS_NAMESPACE } from './identity.js'
 
 export type WorkBuddyRegion = 'cn' | 'intl'
@@ -31,6 +31,23 @@ type ObjectValue = Record<string, unknown>
 const obj = (value: unknown): ObjectValue => value && typeof value === 'object' && !Array.isArray(value) ? value as ObjectValue : {}
 const str = (value: unknown): string => typeof value === 'string' ? value : ''
 const validHeader = (value: string): boolean => !!value && /^[\x21-\x7e]+$/.test(value)
+
+function browserGrant(login: Login): GrantRecord {
+  // The credential store rejects undefined values instead of silently dropping
+  // them as JSON.stringify would. Personal accounts have no enterprise ID.
+  return { kind: 'grant', payload: {
+    source: login.source, access: login.access, uid: login.uid, domain: login.domain,
+    ...(login.refresh ? { refresh: login.refresh } : {}),
+    ...(login.enterpriseId ? { enterpriseId: login.enterpriseId } : {}),
+    ...(login.expires !== undefined ? { expires: login.expires } : {}),
+  } }
+}
+
+function tokenExpiry(data: ObjectValue): number {
+  if (typeof data.expiresAt === 'number' && Number.isFinite(data.expiresAt)) return data.expiresAt
+  const seconds = Number(data.expiresIn)
+  return Date.now() + (Number.isFinite(seconds) && seconds > 0 ? seconds : 3600) * 1000
+}
 
 export function desktopAuthPath(region: WorkBuddyRegion, home = homedir(), platform = process.platform): string {
   const base = platform === 'win32' ? join(home, 'AppData', 'Local', 'CodeBuddyExtension')
@@ -162,8 +179,8 @@ export class WorkBuddySession {
           }, {})
           const access = str(data.accessToken)
           if (!validHeader(access)) throw new LlmError('WorkBuddy 登录刷新失败，请重新登录。', 'AUTH')
-          return { kind: 'grant', payload: { ...latest, access, refresh: str(data.refreshToken) || latest.refresh,
-            expires: typeof data.expiresAt === 'number' ? data.expiresAt : Date.now() + Number(data.expiresIn || 3600) * 1000 } }
+          return browserGrant({ ...latest, access, refresh: str(data.refreshToken) || latest.refresh,
+            expires: tokenExpiry(data) })
         })
         login = record?.kind === 'grant' ? this.stored(record.payload) : undefined
         if (!login) throw new LlmError('WorkBuddy 登录已移除，请重新登录。', 'AUTH')
@@ -216,11 +233,15 @@ export class WorkBuddySession {
       if (pending !== this.pending || pending.generation !== this.generation || this.disposed) return { pending: false, issue: '登录已取消。' }
       const login: Login = { access, refresh: str(token.refreshToken), uid: str(account.uid), domain: str(token.domain),
         enterpriseId: str(account.enterpriseId) || undefined, source: 'browser',
-        expires: typeof token.expiresAt === 'number' ? token.expiresAt : Date.now() + Number(token.expiresIn || 3600) * 1000 }
-      await this.credentials()!.modifyRecord(this.key, async () => {
-        if (pending !== this.pending || this.disposed) return undefined
-        return { kind: 'grant', payload: { ...login } }
-      })
+        expires: tokenExpiry(token) }
+      try {
+        await this.credentials()!.modifyRecord(this.key, async () => {
+          if (pending !== this.pending || this.disposed) return undefined
+          return browserGrant(login)
+        })
+      } catch {
+        throw new LlmError('浏览器授权已完成，但无法保存到 DSH 凭据存储。请检查 DSH 数据目录是否可写后重试。', 'CREDENTIAL_STORAGE')
+      }
       this.pending = undefined
       this.changed()
       return { pending: false }
