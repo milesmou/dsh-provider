@@ -120,8 +120,8 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
     </section>}
     <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? 'max'} disabled={!state?.writable || busy}
       onChange={event => { void chooseContext(event.target.value as ContextWindowMode) }}>
-      <option style={selectColors} value="300k">固定 300K</option>
-      <option style={selectColors} value="500k">固定 500K</option>
+      <option style={selectColors} value="300k">300K</option>
+      <option style={selectColors} value="500k">500K</option>
       <option style={selectColors} value="max">模型最大值</option>
     </select></label>
     {issue ? <p role="alert" style={{ margin: 0, fontSize: 12 }}>{issue}</p> : null}
