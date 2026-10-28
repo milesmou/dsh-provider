@@ -7,6 +7,7 @@ import { WorkBuddyCard } from './provider-card.js'
 import type { ConnectionActions } from './provider-card.js'
 import type { CredentialActions } from './card.js'
 import { CreditsBadge } from './credits-badge.js'
+import type { SelectionSource } from './credits-badge.js'
 import { API_KEY_REF } from '../credential.js'
 import { REMOTE } from '../remote.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
@@ -19,7 +20,12 @@ export async function apply(ctx: Context): Promise<void> {
   const dispose = await ctx.remote.$mount(REMOTE)
   ctx.effect(() => dispose)
   ctx.inject(['remote.workbuddyProvider'], mountCard)
-  ctx.inject(['remote.workbuddyProvider'], mountCredits)
+  ctx.inject(['remote.workbuddyProvider', 'modelDirectories'], mountCredits)
+}
+
+/** Structural slice of the session model-selection service this component reads. */
+interface ModelDirectories {
+  directoryFor(sessionId: string): { store?: SelectionSource } | undefined
 }
 
 /** Register the session-header credit badge; the host read pairs ledger spend with the account balance. */
@@ -29,6 +35,13 @@ function mountCredits(ctx: Context): void {
     if (!result.ok) throw new Error('WorkBuddy credits unavailable')
     return result.value
   }
+  // Read the session's own model-selection store so the badge follows the
+  // selected provider (WorkBuddy only). A missing service leaves it undefined.
+  const selection = (sessionId: string): SelectionSource | undefined => {
+    const directories = ctx.get('modelDirectories') as ModelDirectories | undefined
+    if (!directories?.directoryFor) return undefined
+    try { return directories.directoryFor(sessionId)?.store } catch { return undefined }
+  }
   // The conversation header slot is declared by another client plugin, whose
   // types are not a dependency here; the runtime slot service is structural.
   const slots = ctx.slots as unknown as {
@@ -37,7 +50,7 @@ function mountCredits(ctx: Context): void {
   }
   slots.inject('conversation.session.header.utilities', () => slots.register({
     name: 'conversation.session.header.utilities', id: 'workbuddy-credits', order: -20,
-    inject: () => ({ credits }),
+    inject: () => ({ credits, selection }),
   }, CreditsBadge))
 }
 

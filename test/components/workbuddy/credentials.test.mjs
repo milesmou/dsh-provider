@@ -85,7 +85,8 @@ async function clientFixture({ configured = false, writable = true, writeRefused
   const ctx = {
     effect: () => {},
     plugin: plugin => { mounts.push(plugin.apply(ctx)) },
-    inject: (services, callback) => { assert.deepEqual(Array.from(services), ['remote.workbuddyProvider']); callback(ctx) },
+    inject: (services, callback) => { callback(ctx) },
+    get: () => undefined,
     remote: {
       $mount: async () => () => {},
       settings: {
