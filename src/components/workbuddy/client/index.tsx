@@ -8,6 +8,7 @@ import type { ConnectionActions } from './provider-card.js'
 import type { CredentialActions } from './card.js'
 import { CreditsBadge } from './credits-badge.js'
 import type { SelectionSource } from './credits-badge.js'
+import { ModelNameLabel } from './model-label.js'
 import { API_KEY_REF } from '../credential.js'
 import { REMOTE } from '../remote.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
@@ -21,6 +22,18 @@ export async function apply(ctx: Context): Promise<void> {
   ctx.effect(() => dispose)
   ctx.inject(['remote.workbuddyProvider'], mountCard)
   ctx.inject(['remote.workbuddyProvider', 'modelDirectories'], mountCredits)
+  mountModelLabel(ctx)
+}
+
+/** Add a small mark before WorkBuddy model names in the composer's model selector. */
+function mountModelLabel(ctx: Context): void {
+  const slots = ctx.slots as unknown as {
+    inject(name: string, callback: () => () => void): void
+    register(options: Record<string, unknown>, component: unknown): () => void
+  }
+  slots.inject('conversation.input.model.label', () => slots.register({
+    name: 'conversation.input.model.label',
+  }, ModelNameLabel))
 }
 
 /** Structural slice of the session model-selection service this component reads. */
