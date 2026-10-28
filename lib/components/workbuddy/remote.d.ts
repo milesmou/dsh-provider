@@ -34,7 +34,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     interface TypertRemoteNamespaceMap {
         workbuddyProvider: {
             command(action: ControlAction): Promise<RemoteResult<ControlReply>>;
-            credits(sessionId: string): Promise<RemoteResult<CreditsReply>>;
+            credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>;
         };
     }
 }

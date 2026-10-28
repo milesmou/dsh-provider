@@ -5,7 +5,8 @@ import type { WorkBuddySession } from './session.js';
 import type { CreditLedger } from './credits.js';
 export declare class WorkBuddyController extends TypertRemoteService {
     private readonly options;
-    private accountCache?;
+    /** One fetch of the account balance per session; later reads project from it. */
+    private readonly balances;
     constructor(ctx: Context, options: {
         session(): WorkBuddySession;
         ledger: CreditLedger;
@@ -14,9 +15,11 @@ export declare class WorkBuddyController extends TypertRemoteService {
     command(action: ControlAction): Promise<ControlReply>;
     /**
      * Credit figures for one session: this conversation's accumulated spend from
-     * the ledger, plus the account's remaining balance from the billing meter.
-     * Disabled in API-key mode (no WorkBuddy account to meter). A missing balance
+     * the ledger, plus the account remaining balance. The balance is fetched from
+     * the billing meter only once per session; afterwards it is projected locally
+     * by subtracting the session's later spend. `refresh` forces a fresh fetch
+     * (the manual refresh button). Disabled in API-key mode; a failed balance read
      * leaves `accountRemain` off rather than failing the whole read.
      */
-    credits(sessionId: string): Promise<CreditsReply>;
+    credits(sessionId: string, refresh: boolean): Promise<CreditsReply>;
 }

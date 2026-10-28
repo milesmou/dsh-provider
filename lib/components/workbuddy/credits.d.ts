@@ -28,6 +28,27 @@ export declare const BILLING_PATH = "/billing/meter/get-user-resource-summary";
  */
 export declare function parseBillingSummary(value: unknown): AccountCredits | undefined;
 /**
+ * A once-fetched account balance plus the session spend at that moment. The
+ * badge fetches this snapshot when the session starts and then projects the
+ * remaining balance locally from the ledger, so no further billing request is
+ * made until the user asks for a refresh.
+ */
+export interface SessionBalance {
+    /** Account remaining capacity at the moment of the fetch. */
+    remain: number;
+    /** Account total capacity at the moment of the fetch. */
+    total: number;
+    unit: string;
+    plan?: string;
+    /** This session's accumulated spend when the snapshot was taken. */
+    usedAtFetch: number;
+}
+/**
+ * Project the account remaining balance from a snapshot and the session's
+ * current spend: anything spent after the fetch is subtracted, never below 0.
+ */
+export declare function projectRemain(balance: SessionBalance, sessionUsed: number): number;
+/**
  * Per-session credit ledger. Holds one running total per DSH session id for the
  * life of this process; a fresh plugin load starts every session at zero.
  */

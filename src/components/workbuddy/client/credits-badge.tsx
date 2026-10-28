@@ -23,8 +23,8 @@ export interface SelectionSource {
 export interface CreditsBadgeProps {
   /** Session-scope standard prop; optional so the type also admits the absent scope. */
   sessionId?: string
-  /** Injected host read: session spend + account balance. */
-  credits: (sessionId: string) => Promise<CreditsView>
+  /** Injected host read: session spend + account balance; `refresh` forces a new balance fetch. */
+  credits: (sessionId: string, refresh?: boolean) => Promise<CreditsView>
   /** Injected access to a session's model-selection store; absent elsewhere. */
   selection?: (sessionId: string) => SelectionSource | undefined
 }
@@ -45,15 +45,23 @@ const wrap: CSSProperties = {
   whiteSpace: 'nowrap', cursor: 'default',
 }
 
+const refreshButton: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+  padding: 0, margin: 0, border: 'none', background: 'transparent',
+  color: 'inherit', cursor: 'pointer', lineHeight: 0, opacity: 0.7,
+}
+
 /**
  * Compact session credit indicator for the conversation header. It shows only
  * while the session's selected model belongs to the WorkBuddy provider (the
  * account whose credits these are), and renders this conversation's spend plus
- * the account balance. Figures refresh on an interval while mounted.
+ * the account balance. The balance is fetched once per session and then
+ * projected locally; a small button re-fetches it on demand.
  */
 export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProps) {
   const [view, setView] = useState<CreditsView>()
   const [provider, setProvider] = useState<string | null | undefined>(undefined)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     if (!sessionId) return
@@ -80,7 +88,7 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
     let timer: ReturnType<typeof setTimeout>
     const tick = async () => {
       try {
-        const next = await credits(sessionId)
+        const next = await credits(sessionId, false)
         if (live) setView(next)
       } catch {
         // Keep the last known figures on a transient failure.
@@ -91,6 +99,20 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
     void tick()
     return () => { live = false; clearTimeout(timer) }
   }, [sessionId, credits])
+
+  // Manual re-fetch of the account balance (the once-per-session snapshot).
+  const refresh = async () => {
+    if (!sessionId || refreshing) return
+    setRefreshing(true)
+    try {
+      const next = await credits(sessionId, true)
+      setView(next)
+    } catch {
+      // Keep the last known figures when a manual refresh fails.
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   if (!view?.enabled) return null
   // Show only for the WorkBuddy provider; an unreadable selection (null/undefined)
@@ -109,5 +131,13 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
   return <span title={title} style={wrap} aria-label="WorkBuddy 积分">
     <span>本会话 {used}</span>
     {remain === undefined ? null : <span style={{ opacity: 0.75 }}>· 剩余 {remain}</span>}
+    <button type="button" onClick={event => { event.stopPropagation(); void refresh() }}
+      disabled={refreshing} aria-label="刷新余额" title="刷新余额"
+      style={{ ...refreshButton, opacity: refreshing ? 0.35 : refreshButton.opacity }}>
+      <svg width={12} height={12} viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M14 8a6 6 0 1 1-1.757-4.243" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+        <path d="M14 2.5V6h-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </button>
   </span>
 }

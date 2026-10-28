@@ -24,6 +24,7 @@ const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,
 })
 const actionCodec = codec(Action, 'action')
 const sessionIdCodec = codec(z.string(), 'sessionId')
+const refreshCodec = codec(z.boolean(), 'refresh')
 export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods: {
   'workbuddyProvider/command': {
     service: 'workbuddyProvider', invocation: { kind: 'direct' },
@@ -32,7 +33,10 @@ export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods:
   },
   'workbuddyProvider/credits': {
     service: 'workbuddyProvider', invocation: { kind: 'direct' },
-    parameters: [{ name: 'sessionId', source: 'json', codec: sessionIdCodec, strictCodec: sessionIdCodec }],
+    parameters: [
+      { name: 'sessionId', source: 'json', codec: sessionIdCodec, strictCodec: sessionIdCodec },
+      { name: 'refresh', source: 'json', codec: refreshCodec, strictCodec: refreshCodec },
+    ],
     result: codec(Credits, 'credits'),
   },
 } }, z)
@@ -42,7 +46,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
   interface TypertRemoteNamespaceMap {
     workbuddyProvider: {
       command(action: ControlAction): Promise<RemoteResult<ControlReply>>
-      credits(sessionId: string): Promise<RemoteResult<CreditsReply>>
+      credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>
     }
   }
 }

@@ -43,8 +43,8 @@ interface ModelDirectories {
 
 /** Register the session-header credit badge; the host read pairs ledger spend with the account balance. */
 function mountCredits(ctx: Context): void {
-  const credits = async (sessionId: string) => {
-    const result = await ctx.remote.workbuddyProvider.credits(sessionId)
+  const credits = async (sessionId: string, refresh = false) => {
+    const result = await ctx.remote.workbuddyProvider.credits(sessionId, refresh)
     if (!result.ok) throw new Error('WorkBuddy credits unavailable')
     return result.value
   }

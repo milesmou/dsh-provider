@@ -2,10 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
-import { parseBillingSummary, CreditLedger } from '../../../lib/components/workbuddy/credits.js'
+import { parseBillingSummary, CreditLedger, projectRemain } from '../../../lib/components/workbuddy/credits.js'
 import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
 import { Config } from '../../../lib/components/workbuddy/config.js'
 import { REMOTE } from '../../../lib/components/workbuddy/remote.js'
+import { WorkBuddyController } from '../../../lib/components/workbuddy/controller.js'
 
 test('billing summary aggregates package capacities and names the plan', () => {
   const summary = parseBillingSummary({
@@ -69,4 +70,58 @@ test('the credits Remote is declared with a session id parameter', () => {
   const method = REMOTE.methods['workbuddyProvider/credits']
   assert.ok(method, 'credits method declared')
   assert.equal(method.parameters[0].name, 'sessionId')
+  assert.equal(method.parameters[1].name, 'refresh')
+  assert.equal(method.parameters[1].codec.create().parse(true), true)
+})
+
+test('the remaining balance is projected by subtracting post-fetch session spend', () => {
+  const balance = { remain: 100, total: 200, unit: 'credits', usedAtFetch: 5 }
+  assert.equal(projectRemain(balance, 5), 100)   // no spend yet
+  assert.equal(projectRemain(balance, 7.5), 97.5) // 2.5 spent since the fetch
+  assert.equal(projectRemain(balance, 4), 100)   // never add back
+  assert.equal(projectRemain(balance, 500), 0)   // clamped at zero
+})
+
+test('the controller fetches the balance once per session and only re-fetches on demand', async () => {
+  const proto = WorkBuddyController.prototype
+  const ledger = new CreditLedger()
+  const calls = []
+  let next = { remain: 1000, total: 2000, unit: 'credits', plan: 'pro' }
+  const options = {
+    enabled: () => true,
+    ledger,
+    session: () => ({ accountCredits: async () => { calls.push(next); return next } }),
+  }
+  const fake = { options, balances: new Map() }
+  const read = refresh => proto.credits.call(fake, 's1', refresh)
+
+  const first = await read(false)
+  assert.deepEqual(first, { enabled: true, sessionUsed: 0, accountRemain: 1000, accountTotal: 2000, unit: 'credits', plan: 'pro' })
+  assert.equal(calls.length, 1)
+
+  ledger.add('s1', 12.5)
+  const second = await read(false)
+  assert.equal(calls.length, 1, 'no new billing request after the first snapshot')
+  assert.equal(second.sessionUsed, 12.5)
+  assert.equal(second.accountRemain, 987.5)
+
+  // A manual refresh re-fetches and rebases on the current spend.
+  next = { remain: 900, total: 2000, unit: 'credits', plan: 'pro' }
+  const refreshed = await read(true)
+  assert.equal(calls.length, 2)
+  assert.equal(refreshed.accountRemain, 900)
+  ledger.add('s1', 1)
+  assert.equal((await read(false)).accountRemain, 899)
+
+  // A failed forced refresh keeps the previous snapshot rather than dropping it.
+  options.session = () => ({ accountCredits: async () => { throw new Error('offline') } })
+  const kept = await read(true)
+  assert.equal(kept.accountRemain, 899)
+})
+
+test('the controller reports disabled in API-key mode', async () => {
+  const proto = WorkBuddyController.prototype
+  const fake = { options: { enabled: () => false, ledger: new CreditLedger(),
+    session: () => ({ accountCredits: async () => { throw new Error('must not be called') } }) }, balances: new Map() }
+  assert.deepEqual(await proto.credits.call(fake, 's1', false), { enabled: false })
 })

@@ -4,10 +4,12 @@ import { LlmError } from '@deepseek-ai/dsh-llm'
 import { Action } from './remote.js'
 import type { ControlAction, ControlReply, CreditsReply } from './remote.js'
 import type { WorkBuddySession } from './session.js'
-import type { CreditLedger } from './credits.js'
+import { projectRemain } from './credits.js'
+import type { CreditLedger, SessionBalance } from './credits.js'
 
 export class WorkBuddyController extends TypertRemoteService {
-  private accountCache?: { at: number; value: Awaited<ReturnType<WorkBuddySession['accountCredits']>> }
+  /** One fetch of the account balance per session; later reads project from it. */
+  private readonly balances = new Map<string, SessionBalance>()
 
   constructor(ctx: Context, private readonly options: {
     session(): WorkBuddySession
@@ -35,27 +37,34 @@ export class WorkBuddyController extends TypertRemoteService {
 
   /**
    * Credit figures for one session: this conversation's accumulated spend from
-   * the ledger, plus the account's remaining balance from the billing meter.
-   * Disabled in API-key mode (no WorkBuddy account to meter). A missing balance
+   * the ledger, plus the account remaining balance. The balance is fetched from
+   * the billing meter only once per session; afterwards it is projected locally
+   * by subtracting the session's later spend. `refresh` forces a fresh fetch
+   * (the manual refresh button). Disabled in API-key mode; a failed balance read
    * leaves `accountRemain` off rather than failing the whole read.
    */
   @Remote
-  async credits(sessionId: string): Promise<CreditsReply> {
+  async credits(sessionId: string, refresh: boolean): Promise<CreditsReply> {
     if (!this.options.enabled()) return { enabled: false }
     const sessionUsed = this.options.ledger.of(sessionId)
-    // The client polls this; cache the billing read so a 5s badge refresh does
-    // not become a 5s account-billing request.
-    const now = Date.now()
-    if (!this.accountCache || now - this.accountCache.at > 20000) {
-      let value: Awaited<ReturnType<WorkBuddySession['accountCredits']>>
-      try { value = await this.options.session().accountCredits() } catch { value = undefined }
-      this.accountCache = { at: now, value }
+    let balance = this.balances.get(sessionId)
+    if (!balance || refresh === true) {
+      let account: Awaited<ReturnType<WorkBuddySession['accountCredits']>>
+      try { account = await this.options.session().accountCredits() } catch { account = undefined }
+      // Keep the previous snapshot when a forced refresh fails, so the badge
+      // does not fall back to a bare session total.
+      if (account) {
+        balance = { remain: account.remain, total: account.total, unit: account.unit,
+          ...(account.plan ? { plan: account.plan } : {}), usedAtFetch: sessionUsed }
+        this.balances.set(sessionId, balance)
+      }
     }
-    const account = this.accountCache.value
+    if (!balance) return { enabled: true, sessionUsed }
     return {
       enabled: true, sessionUsed,
-      ...(account ? { accountRemain: account.remain, accountTotal: account.total, unit: account.unit,
-        ...(account.plan ? { plan: account.plan } : {}) } : {}),
+      accountRemain: projectRemain(balance, sessionUsed),
+      accountTotal: balance.total, unit: balance.unit,
+      ...(balance.plan ? { plan: balance.plan } : {}),
     }
   }
 }
