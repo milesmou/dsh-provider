@@ -43,6 +43,8 @@ export interface ModelConfig {
     defaultReasoningEffort?: string;
     /** Whether reasoning can be disabled entirely (adds the `none` level). */
     canDisableThinking?: boolean;
+    /** Credit multiplier the catalog advertises (e.g. `x0.69`), when disclosed. */
+    credits?: string;
 }
 export interface Options {
     environment: 'internal' | 'overseas' | 'ioa';

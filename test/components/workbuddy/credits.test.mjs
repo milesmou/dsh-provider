@@ -2,10 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { parseBillingSummary, CreditLedger, projectRemain } from '../../../lib/components/workbuddy/credits.js'
+import { parseBillingSummary, CreditLedger, projectRemain, turnCreditIndex, turnCreditOf } from '../../../lib/components/workbuddy/credits.js'
 import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
 import { Config } from '../../../lib/components/workbuddy/config.js'
 import { REMOTE } from '../../../lib/components/workbuddy/remote.js'
@@ -39,6 +39,39 @@ test('the credit ledger accumulates per session and guards invalid charges', () 
   assert.equal(ledger.of('s2'), 0.5)
   assert.equal(ledger.of('missing'), 0)
   assert.equal(ledger.of(undefined), 0)
+})
+
+test('the credit ledger rounds accumulated float charges', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-credit-ledger-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const file = join(dir, 'credits.json')
+  const ledger = new CreditLedger(file)
+  ledger.add('s1', 0.1)
+  ledger.add('s1', 0.2)
+  assert.equal(ledger.of('s1'), 0.3)
+  await ledger.persist()
+  assert.deepEqual(JSON.parse(await readFile(file, 'utf8')), { s1: 0.3 })
+  // A legacy file carrying float artifacts is normalized when read back.
+  await writeFile(file, JSON.stringify({ s1: 0.30000000000000004 }), 'utf8')
+  const legacy = new CreditLedger(file)
+  assert.equal(legacy.of('s1'), 0.3)
+})
+
+test('the turn-credit index resolves every message of a session in one pass', () => {
+  const events = [
+    { type: 'assistant/message', data: { turn: 1, message: { id: 'a1', source: { provider: 'workbuddy' } }, usage: { credit: 0.01 } } },
+    { type: 'assistant/message', data: { turn: 1, message: { id: 'a2', source: { provider: 'workbuddy' } }, usage: { credit: 0.02 } } },
+    { type: 'assistant/message', data: { turn: 2, message: { id: 'b1', source: { provider: 'workbuddy' } }, usage: { credit: 0.5 } } },
+    { type: 'assistant/message', data: { turn: 2, message: { id: 'b2', source: { provider: 'workbuddy' } }, usage: {} } },
+    { type: 'assistant/message', data: { turn: 3, message: { id: 'x', source: { provider: 'deepseek' } }, usage: { credit: 0.9 } } },
+  ]
+  const index = turnCreditIndex(events)
+  assert.equal(index.get('a1'), 0.03)
+  assert.equal(index.get('a2'), 0.03)
+  assert.equal(index.get('b1'), 0.5)
+  assert.equal(index.get('b2'), 0.5)
+  assert.equal(index.has('x'), false)
+  assert.equal(index.has('missing'), false)
 })
 
 test('the ledger persists session totals across plugin reloads', async t => {
@@ -89,8 +122,55 @@ test('the adapter reports each call\'s usage credit to the session ledger', asyn
   })
   const options = { provider: 'workbuddy', model: 'auto', sessionId: 'sess-1',
     messages: [{ role: 'user', content: [{ type: 'text', text: '你好' }] }] }
-  for await (const _ of adapter.stream(options)) { /* drain */ }
+  let reported
+  for await (const part of adapter.stream(options)) if (part.type === 'usage') reported = part.usage
   assert.deepEqual(charges, [{ sessionId: 'sess-1', credit: 0.03 }])
+  // The same charge rides on the usage sample the session records, which is
+  // what lets a completed Turn's spend be read back later.
+  assert.equal(reported.credit, 0.03)
+})
+
+test('a Turn\'s credit sums every assistant step of the Turn owning a message', () => {
+  const events = [
+    { type: 'turn/start', data: { turn: 1 } },
+    { type: 'assistant/message', data: { turn: 1, message: { id: 'a1', source: { provider: 'workbuddy' } }, usage: { credit: 0.01 } } },
+    { type: 'assistant/message', data: { turn: 1, message: { id: 'a2', source: { provider: 'workbuddy' } }, usage: { credit: 0.02 } } },
+    { type: 'assistant/message', data: { turn: 2, message: { id: 'b1', source: { provider: 'workbuddy' } }, usage: { credit: 0.5 } } },
+    { type: 'assistant/message', data: { turn: 2, message: { id: 'b2', source: { provider: 'workbuddy' } }, usage: {} } },
+  ]
+  assert.equal(turnCreditOf(events, 'a2'), 0.03)
+  assert.equal(turnCreditOf(events, 'b1'), 0.5)
+  // A zero charge is still a disclosed charge and renders as 0.
+  assert.equal(turnCreditOf([{ type: 'assistant/message', data: { turn: 7, message: { id: 'free', source: { provider: 'workbuddy' } }, usage: { credit: 0 } } }], 'free'), 0)
+  assert.equal(turnCreditOf(events, 'missing'), undefined)
+  // Another provider's usage is never reported as a WorkBuddy credit.
+  const foreign = [{ type: 'assistant/message', data: { turn: 3, message: { id: 'x', source: { provider: 'deepseek' } }, usage: { credit: 0.9 } } }]
+  assert.equal(turnCreditOf(foreign, 'x'), undefined)
+})
+
+test('the turnCredit Remote is declared with session and message ids', () => {
+  const method = REMOTE.methods['workbuddyProvider/turnCredit']
+  assert.ok(method, 'turnCredit method declared')
+  assert.equal(method.parameters[0].name, 'sessionId')
+  assert.equal(method.parameters[1].name, 'messageId')
+  assert.equal(REMOTE.methods['workbuddyProvider/probe'], undefined, 'diagnostic probe is not shipped')
+})
+
+test('the controller reads a Turn credit from the session log on demand', async () => {
+  const events = [
+    { type: 'assistant/message', data: { turn: 1, message: { id: 'a1', source: { provider: 'workbuddy' } }, usage: { credit: 0.01 } } },
+    { type: 'assistant/message', data: { turn: 1, message: { id: 'a2', source: { provider: 'workbuddy' } }, usage: { credit: 0.02 } } },
+  ]
+  const session = { snapshotEvents: () => events }
+  const fake = {
+    host: { get: (name) => name === 'sessions' ? { get: id => id === 's1' ? session : undefined } : undefined },
+    creditIndexes: new WeakMap(),
+  }
+  const proto = WorkBuddyController.prototype
+  assert.deepEqual(await proto.turnCredit.call(fake, 's1', 'a2'), { credits: 0.03 })
+  assert.deepEqual(await proto.turnCredit.call(fake, 's1', 'unknown'), {})
+  assert.deepEqual(await proto.turnCredit.call(fake, 'missing', 'a2'), {})
+  assert.deepEqual(await proto.turnCredit.call({ host: { get: () => undefined } }, 's1', 'a2'), {})
 })
 
 test('the credits Remote is declared with a session id parameter', () => {

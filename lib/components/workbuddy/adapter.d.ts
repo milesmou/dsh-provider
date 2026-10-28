@@ -40,10 +40,11 @@ export declare class CodeBuddyAdapter extends LlmAdapter {
         name: string;
     };
     listModels(provider: string): Promise<{
+        inputModalities: readonly ModelModality[];
+        description?: string | undefined;
         provider: string;
         id: string;
         name: string;
-        inputModalities: readonly ModelModality[];
     }[]>;
     /** Models to advertise: the live catalog when present, else the built-in baseline. */
     private modelList;

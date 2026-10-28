@@ -12,6 +12,17 @@ type ObjectValue = Record<string, unknown>
 const object = (value: unknown): ObjectValue => value && typeof value === 'object' && !Array.isArray(value) ? value as ObjectValue : {}
 const positive = (value: unknown): number | undefined => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim()) : []
+/**
+ * Credit multiplier one catalog entry advertises. WorkBuddy reports it as a
+ * short string such as `x0.69`; a bare number is normalized to the same form so
+ * every model carries one consistent spelling.
+ */
+const creditMultiplier = (value: unknown): string | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return 'x' + value
+  if (typeof value !== 'string') return undefined
+  const text = value.trim().toLowerCase()
+  return /^x\d+(?:\.\d+)?$/.test(text) ? text : undefined
+}
 /** Selectable context lengths a contextWindow object advertises, in the order given. */
 const supportedLengths = (value: unknown): number[] => {
   const item = object(value)
@@ -81,6 +92,7 @@ export function parseCatalog(value: unknown): ModelConfig[] {
       : capacity ? [capacity] : []
     const contextWindow = contextLengths.length ? contextLengths[contextLengths.length - 1] : capacity
     const maxTokens = positive(raw.maxTokens ?? raw.maxOutputTokens)
+    const credits = creditMultiplier(raw.credits)
     models.set(raw.id, {
       id: raw.id,
       ...(typeof raw.name === 'string' && raw.name.trim() ? { name: raw.name } : {}),
@@ -88,6 +100,7 @@ export function parseCatalog(value: unknown): ModelConfig[] {
       ...(contextLengths.length ? { contextLengths } : {}),
       ...(maxTokens ? { maxTokens: contextWindow ? Math.min(contextWindow, maxTokens) : maxTokens } : {}),
       ...(typeof raw.supportsImages === 'boolean' ? { supportsImages: raw.supportsImages } : {}),
+      ...(credits ? { credits } : {}),
       ...reasoningOf(raw),
     })
   }

@@ -83,7 +83,10 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
   }, [sessionId, selection])
 
   useEffect(() => {
-    if (!sessionId) return
+    if (!sessionId || provider !== WORKBUDDY_PROVIDER) {
+      setView(undefined)
+      return
+    }
     let live = true
     let timer: ReturnType<typeof setTimeout>
     const tick = async () => {
@@ -98,7 +101,7 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
     }
     void tick()
     return () => { live = false; clearTimeout(timer) }
-  }, [sessionId, credits])
+  }, [sessionId, credits, provider])
 
   // Manual re-fetch of the account balance (the once-per-session snapshot).
   const refresh = async () => {
@@ -114,10 +117,7 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
     }
   }
 
-  if (!view?.enabled) return null
-  // Show only for the WorkBuddy provider; an unreadable selection (null/undefined)
-  // keeps the badge so a missing store never hides real WorkBuddy usage.
-  if (provider !== undefined && provider !== null && provider !== WORKBUDDY_PROVIDER) return null
+  if (!view?.enabled || provider !== WORKBUDDY_PROVIDER) return null
 
   const used = fmt(view.sessionUsed ?? 0)
   const remain = view.accountRemain === undefined ? undefined : fmt(view.accountRemain)

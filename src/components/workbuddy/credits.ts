@@ -90,6 +90,70 @@ export function projectRemain(balance: SessionBalance, sessionUsed: number): num
   return round(Math.max(0, remaining))
 }
 
+/** The durable slice of a session event this module reads for per-turn credits. */
+export interface CreditSessionEvent {
+  readonly type: string
+  readonly data?: {
+    readonly turn?: number
+    readonly message?: {
+      readonly id?: string
+      readonly source?: { readonly provider?: string }
+    }
+    readonly usage?: { readonly credit?: unknown }
+  }
+}
+
+/** The provider route this component owns; only its assistant turns carry credits. */
+const CREDIT_PROVIDER = 'workbuddy'
+
+/**
+ * Index every WorkBuddy assistant message id to its Turn's exact credit total.
+ *
+ * Every assistant settlement carries the provider's `usage.credit` (the adapter
+ * preserves that field beside the token buckets). A Turn may run several model
+ * steps, so its total is the sum over every assistant message in that Turn.
+ * One pass builds the whole map, letting a caller answer every message of a
+ * session without rescanning the log per message. Messages from another
+ * provider, or Turns where no step disclosed a charge, are absent.
+ */
+export function turnCreditIndex(events: readonly CreditSessionEvent[]): Map<string, number> {
+  const turns = new Map<number, { total: number; disclosed: boolean }>()
+  const messages = new Map<string, number>()
+  for (const event of events) {
+    if (event.type !== 'assistant/message') continue
+    // Only the WorkBuddy route reports credits; a same-shaped field on another
+    // provider's usage must never surface here.
+    if (event.data?.message?.source?.provider !== CREDIT_PROVIDER) continue
+    const id = event.data.message.id
+    const turn = event.data.turn
+    if (typeof id !== 'string' || typeof turn !== 'number') continue
+    messages.set(id, turn)
+    const credit = event.data.usage?.credit
+    if (typeof credit === 'number' && Number.isFinite(credit) && credit >= 0) {
+      const entry = turns.get(turn) ?? { total: 0, disclosed: false }
+      entry.total += credit
+      entry.disclosed = true
+      turns.set(turn, entry)
+    }
+  }
+  const index = new Map<string, number>()
+  for (const [id, turn] of messages) {
+    const entry = turns.get(turn)
+    if (entry?.disclosed) index.set(id, round(entry.total))
+  }
+  return index
+}
+
+/**
+ * Sum the exact credit charges of the Turn that owns one assistant message.
+ *
+ * Returns undefined when the message is unknown, belongs to another provider,
+ * or no step disclosed a charge.
+ */
+export function turnCreditOf(events: readonly CreditSessionEvent[], messageId: string): number | undefined {
+  return turnCreditIndex(events).get(messageId)
+}
+
 /**
  * Per-session credit ledger. Holds one running total per DSH session id. When a
  * backing file is supplied the totals are loaded on construction and written
@@ -107,7 +171,7 @@ export class CreditLedger {
   add(sessionId: string | undefined, credit: number): void {
     if (!sessionId || !Number.isFinite(credit) || credit <= 0) return
     const key = String(sessionId)
-    this.bySession.set(key, (this.bySession.get(key) ?? 0) + credit)
+    this.bySession.set(key, round((this.bySession.get(key) ?? 0) + credit))
     this.scheduleSave()
   }
 
@@ -129,7 +193,7 @@ export class CreditLedger {
       if (!data || typeof data !== 'object') return
       for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
         const total = Number(value)
-        if (key && Number.isFinite(total) && total > 0) this.bySession.set(key, total)
+        if (key && Number.isFinite(total) && total > 0) this.bySession.set(key, round(total))
       }
     } catch {
       // Missing or corrupt ledger: start empty rather than block startup.
@@ -146,7 +210,7 @@ export class CreditLedger {
   private async write(): Promise<void> {
     if (!this.filename) return
     const data: Record<string, number> = {}
-    for (const [key, total] of this.bySession) if (total > 0) data[key] = total
+    for (const [key, total] of this.bySession) if (total > 0) data[key] = round(total)
     try {
       await writeFileAtomic(this.filename, JSON.stringify(data, null, 2), { mode: 0o600, dirMode: 0o700 })
     } catch {
