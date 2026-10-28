@@ -111,7 +111,6 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
         <option style={selectColors} value="cn">国内版</option><option style={selectColors} value="intl">国际版 WorkBuddy AI</option>
       </select></label>
       <strong>{state?.login?.configured ? `已连接（${state.login.source === 'browser' ? '浏览器登录' : '本机登录'}）` : '未连接 WorkBuddy'}</strong>
-      <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>复用本机登录态，工具由 DSH 执行。若本机凭据已加密，请使用浏览器登录。模型列表在启动、切换接入方式或完成登录时获取。</p>
       {state?.login?.issue ? <p role="note" style={{ margin: 0, fontSize: 12 }}>{state.login.issue}</p> : null}
       <div style={{ display: 'flex', gap: 10 }}>
         <button style={control} type="button" disabled={busy || polling} onClick={() => { void startLogin() }}>浏览器登录</button>
@@ -119,13 +118,12 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
       </div>
       {url ? <a href={url} target="_blank" rel="noopener noreferrer">登录页面未自动打开？点此手动打开，完成后将自动连接</a> : null}
     </section>}
-    <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? '500k'} disabled={!state?.writable || busy}
+    <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? 'max'} disabled={!state?.writable || busy}
       onChange={event => { void chooseContext(event.target.value as ContextWindowMode) }}>
       <option style={selectColors} value="300k">固定 300K</option>
       <option style={selectColors} value="500k">固定 500K</option>
       <option style={selectColors} value="max">模型最大值</option>
     </select></label>
-    <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>每轮可携带的历史上限（DSH 按此计算压缩预算）。固定值更省积分；「模型最大值」按各模型自身容量，未知时用 500K。</p>
     {issue ? <p role="alert" style={{ margin: 0, fontSize: 12 }}>{issue}</p> : null}
   </section>
 }

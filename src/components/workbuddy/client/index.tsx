@@ -86,7 +86,7 @@ function mountCard(ctx: Context): void {
       const settings = (value.value as { workbuddy?: { mode?: string; workbuddyRegion?: string; contextWindow?: string } }).workbuddy ?? {}
       const mode = settings.mode === 'workbuddy' ? 'workbuddy' : 'api'
       const region = settings.workbuddyRegion === 'intl' ? 'intl' : 'cn'
-      const context = settings.contextWindow === '300k' ? '300k' : settings.contextWindow === 'max' ? 'max' : '500k'
+      const context = settings.contextWindow === '300k' ? '300k' : settings.contextWindow === '500k' ? '500k' : 'max'
       const login = mode === 'workbuddy' ? await connection.control('status') : undefined
       return { mode, region, context, writable: response.writable,
         ...(login ? { login: { configured: !!login.configured, source: login.source, issue: login.issue } } : {}) }

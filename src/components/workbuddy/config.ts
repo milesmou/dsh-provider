@@ -57,7 +57,7 @@ export interface Options {
 export const Config = z.object({
   mode: z.union(['api', 'workbuddy']).default('api').volatile(),
   workbuddyRegion: z.union(['cn', 'intl']).default('cn').volatile(),
-  contextWindow: z.union(['300k', '500k', 'max']).default('500k').volatile(),
+  contextWindow: z.union(['300k', '500k', 'max']).default('max').volatile(),
   environment: z.union(['internal', 'overseas', 'ioa']).default('internal'),
   baseURL: z.string().default(''),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),

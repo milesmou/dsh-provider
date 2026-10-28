@@ -157,7 +157,7 @@ test('switching to WorkBuddy stores only mode and region and reads its dedicated
 
 test('context window choice persists through the settings namespace', async () => {
   const fixture = await clientFixture()
-  assert.equal((await fixture.connection.status()).context, '500k')
+  assert.equal((await fixture.connection.status()).context, 'max')
   await fixture.connection.context('300k')
   assert.equal((await fixture.connection.status()).context, '300k')
   await fixture.connection.context('max')
