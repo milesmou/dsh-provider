@@ -6,6 +6,13 @@ export type Mode = 'api' | 'workbuddy'
 export type PluginConfig = Options & { mode: Volatile<Mode>; workbuddyRegion: Volatile<WorkBuddyRegion> }
 
 /**
+ * Working context window every WorkBuddy model runs with, in tokens (500K).
+ * A model whose own declared maximum is smaller keeps that smaller maximum, so
+ * a request can never exceed what the model actually accepts.
+ */
+export const CONTEXT_WINDOW = 500 * 1024
+
+/**
  * One model entry. Always produced by the catalog now; the fields beyond
  * identity are whatever the catalog disclosed (capacity, image support, and
  * thinking levels). The baseline entry below carries only identity.

@@ -84,7 +84,10 @@ test('startup refresh deduplicates calls; elapsed time and selector reads never 
   await Promise.all([catalog.refresh(), catalog.refresh(), catalog.refresh()])
   assert.equal(calls, 1)
   assert.equal(changed, 1)
-  assert.deepEqual(catalog.models(), [{ id: 'auto', name: 'Auto' }, { id: 'remote', name: 'Custom', maxTokens: 25 }])
+  assert.deepEqual(catalog.models(), [
+    { id: 'auto', name: 'Auto', contextWindow: 512000 },
+    { id: 'remote', name: 'Custom', maxTokens: 25, contextWindow: 512000 },
+  ])
   const adapter = new CodeBuddyAdapter(Config({}), { ...connection, catalog })
   t.mock.timers.tick(86400000)
   for (let index = 0; index < 3; index++) {
@@ -152,4 +155,14 @@ test('DSH startup, credential save, and disposal update the real model registry'
   assert.equal(interval.mock.callCount(), 0)
   await fiber.dispose()
   assert.deepEqual(ctx.llm.listProviders(), [])
+})
+
+test('every model runs with a 500K window, capped by its own declared maximum', () => {
+  const catalog = new ModelCatalog([
+    { id: 'big', name: 'Big' },
+    { id: 'small', name: 'Small', contextWindow: 192 * 1024 },
+  ], { baseURL: 'https://gateway.example/v2' })
+  const models = Object.fromEntries(catalog.models().map(model => [model.id, model]))
+  assert.equal(models.big.contextWindow, 500 * 1024)
+  assert.equal(models.small.contextWindow, 192 * 1024)
 })
