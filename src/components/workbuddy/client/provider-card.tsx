@@ -14,6 +14,13 @@ export interface ConnectionActions {
 }
 const control: CSSProperties = { font: 'inherit', color: 'inherit', background: 'transparent',
   border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', borderRadius: 6, padding: '8px 12px' }
+// Native popup menus need an explicit foreground/background pair: inheriting
+// light text alone can leave an option unreadable on the OS's white popup.
+const selectColors: CSSProperties = {
+  color: 'var(--dsw-alias-label-primary, CanvasText)',
+  backgroundColor: 'var(--dsw-alias-bg-layer-2, Canvas)',
+}
+const selectControl: CSSProperties = { ...control, ...selectColors }
 const label: CSSProperties = { display: 'grid', gap: 6, fontSize: 13 }
 
 export function WorkBuddyCard({ actions, connection }: { actions: CredentialActions; connection: ConnectionActions }) {
@@ -65,14 +72,14 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
   const mode = state?.mode ?? 'api'
   return <section aria-label="WorkBuddy 组件设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
     <strong>WorkBuddy 组件</strong>
-    <label style={label}>接入方式 <select style={control} aria-label="WorkBuddy 接入方式" value={mode} disabled={!state?.writable || busy}
+    <label style={label}>接入方式 <select style={selectControl} aria-label="WorkBuddy 接入方式" value={mode} disabled={!state?.writable || busy}
       onChange={event => { void select(event.target.value as Mode, state?.region ?? 'cn') }}>
-      <option value="api">CodeBuddy API Key</option><option value="workbuddy">WorkBuddy 登录（免 API Key）</option>
+      <option style={selectColors} value="api">CodeBuddy API Key</option><option style={selectColors} value="workbuddy">WorkBuddy 登录（免 API Key）</option>
     </select></label>
     {mode === 'api' ? <CodeBuddyKeyCard actions={actions} /> : <section aria-label="WorkBuddy 登录" style={{ display: 'grid', gap: 10 }}>
-      <label style={label}>WorkBuddy 版本 <select style={control} aria-label="WorkBuddy 版本" value={state?.region ?? 'cn'} disabled={!state?.writable || busy || polling}
+      <label style={label}>WorkBuddy 版本 <select style={selectControl} aria-label="WorkBuddy 版本" value={state?.region ?? 'cn'} disabled={!state?.writable || busy || polling}
         onChange={event => { void select('workbuddy', event.target.value as WorkBuddyRegion) }}>
-        <option value="cn">国内版</option><option value="intl">国际版 WorkBuddy AI</option>
+        <option style={selectColors} value="cn">国内版</option><option style={selectColors} value="intl">国际版 WorkBuddy AI</option>
       </select></label>
       <strong>{state?.login?.configured ? `已连接（${state.login.source === 'browser' ? '浏览器登录' : '本机登录'}）` : '未连接 WorkBuddy'}</strong>
       <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>复用本机登录态，工具由 DSH 执行。若本机凭据已加密，请使用浏览器登录。模型列表在启动、切换接入方式或完成登录时获取。</p>
