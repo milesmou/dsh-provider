@@ -84,13 +84,33 @@ export class ModelCatalog {
     private readonly baseline: ModelConfig[],
     private readonly connection: CatalogConnection,
     private readonly changed: () => void = () => {},
+    /** Per-model context-window overrides from the component settings. */
+    private readonly contextOverrides: () => Record<string, number> = () => ({}),
   ) {}
 
+  /** Models as the adapter should route them: catalog + baseline + user overrides. */
   models(): ModelConfig[] {
+    return this.assemble(true)
+  }
+
+  /** Models exactly as discovered/baseline, without context-window overrides (for settings UI). */
+  baseModels(): ModelConfig[] {
+    return this.assemble(false)
+  }
+
+  private assemble(applyOverrides: boolean): ModelConfig[] {
     const models = new Map(this.remote.map(model => [model.id, model]))
     for (const model of this.baseline) {
       const overrides = Object.fromEntries(Object.entries(model).filter(([, value]) => value !== undefined))
       models.set(model.id, { ...models.get(model.id), ...overrides } as ModelConfig)
+    }
+    if (applyOverrides) {
+      for (const [id, tokens] of Object.entries(this.contextOverrides())) {
+        const model = models.get(id)
+        if (model && typeof tokens === 'number' && Number.isSafeInteger(tokens) && tokens > 0) {
+          models.set(id, { ...model, contextWindow: tokens })
+        }
+      }
     }
     // Keep the built-in baseline entry (Auto) ahead of the discovered models.
     return [...this.baseline.map(model => models.get(model.id)!), ...[...models.values()].filter(model => !this.baseline.some(item => item.id === model.id))]

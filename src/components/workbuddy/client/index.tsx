@@ -95,6 +95,15 @@ function mountCard(ctx: Context): void {
       const result = await ctx.remote.settings.update(value.ns, { workbuddy: { mode, workbuddyRegion: region } }, value.revision)
       if (!result.ok) throw new Error('Settings write refused')
     },
+    contexts: async () => {
+      const result = await ctx.remote.workbuddyProvider.contexts()
+      if (!result.ok) throw new Error('WorkBuddy contexts unavailable')
+      return result.value
+    },
+    setContext: async (modelId, tokens) => {
+      const result = await ctx.remote.workbuddyProvider.setContext(modelId, tokens)
+      if (!result.ok) throw new Error('WorkBuddy context update refused')
+    },
   }
   const actions: CredentialActions = {
     status: async () => {

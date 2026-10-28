@@ -16,6 +16,7 @@ import { SETTINGS_NAMESPACE, MODEL_ROUTE } from './identity.js'
 import { WorkBuddySession, SITES } from './session.js'
 import type { WorkBuddyRegion } from './session.js'
 import { CreditLedger } from './credits.js'
+import { ContextWindowStore } from './contexts.js'
 import { WorkBuddyController } from './controller.js'
 
 export { Config } from './config.js'
@@ -63,6 +64,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
   const sessions = new Map<WorkBuddyRegion, WorkBuddySession>()
   const ledgerFile = join(resolveDshHome(), 'storages', 'dsh-provider-credits.json')
   const ledger = new CreditLedger(ledgerFile)
+  const contexts = new ContextWindowStore(join(resolveDshHome(), 'storages', 'dsh-provider-contexts.json'))
   let catalog: ModelCatalog | undefined
   let adapter: CodeBuddyAdapter
   let selection = ''
@@ -105,13 +107,17 @@ export function apply(ctx: Context, config: PluginConfig): void {
     }
     const models = baselineModels(mode.get(), workbuddyRegion.get())
     connection.fallback = models
-    catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'))
+    catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'), () => contexts.all())
     adapter = new CodeBuddyAdapter(structuredClone(options), { ...connection, catalog })
     void catalog.refresh()
   }
   rebuild()
   ctx.llm.registerAdapter([MODEL_ROUTE], new SwitchingAdapter(() => adapter))
-  ctx.plugin(WorkBuddyController, { session, ledger, enabled: () => mode.get() === 'workbuddy' })
+  ctx.plugin(WorkBuddyController, {
+    session, ledger, enabled: () => mode.get() === 'workbuddy',
+    models: () => catalog?.baseModels() ?? baselineModels(mode.get(), workbuddyRegion.get()),
+    contexts,
+  })
   ctx.inject(['credentials'], () => { catalog?.credentialsChanged() })
   ctx.on('credentials/reference-updated', updated => {
     if (updated === ref && mode.get() === 'api') catalog?.credentialsChanged()
@@ -126,5 +132,6 @@ export function apply(ctx: Context, config: PluginConfig): void {
     catalog?.dispose()
     for (const value of sessions.values()) value.dispose()
     void ledger.persist()
+    void contexts.persist()
   })
 }

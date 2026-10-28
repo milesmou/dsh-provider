@@ -2,10 +2,13 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { Action } from './remote.js'
-import type { ControlAction, ControlReply, CreditsReply } from './remote.js'
+import type { ControlAction, ControlReply, CreditsReply, ContextsReply } from './remote.js'
 import type { WorkBuddySession } from './session.js'
+import type { ModelConfig } from './config.js'
 import { projectRemain } from './credits.js'
 import type { CreditLedger, SessionBalance } from './credits.js'
+import { normalizeContextWindow } from './contexts.js'
+import type { ContextWindowStore } from './contexts.js'
 
 export class WorkBuddyController extends TypertRemoteService {
   /** One fetch of the account balance per session; later reads project from it. */
@@ -15,6 +18,10 @@ export class WorkBuddyController extends TypertRemoteService {
     session(): WorkBuddySession
     ledger: CreditLedger
     enabled(): boolean
+    /** Discovered models (names and base capacities) for the settings card. */
+    models(): ModelConfig[]
+    /** Per-model context-window overrides chosen in settings. */
+    contexts: ContextWindowStore
   }) {
     super(ctx, 'workbuddyProvider')
   }
@@ -66,5 +73,35 @@ export class WorkBuddyController extends TypertRemoteService {
       accountTotal: balance.total, unit: balance.unit,
       ...(balance.plan ? { plan: balance.plan } : {}),
     }
+  }
+
+  /**
+   * Models advertised by the current catalog (base capacities, before overrides)
+   * plus the saved per-model context-window overrides. Powers the component
+   * settings card; available in both sign-in and API-key modes.
+   */
+  @Remote
+  async contexts(): Promise<ContextsReply> {
+    return {
+      models: this.options.models().map(model => ({
+        id: model.id,
+        name: model.name ?? model.id,
+        ...(model.contextWindow ? { contextWindow: model.contextWindow } : {}),
+      })),
+      overrides: this.options.contexts.all(),
+    }
+  }
+
+  /**
+   * Save one model's context-window override. `tokens <= 0` clears it so the
+   * model's own window applies. The next request's resolved model metadata reads
+   * the override, which is what DSH's compaction budget uses.
+   */
+  @Remote
+  async setContext(modelId: string, tokens: number): Promise<{ ok: boolean }> {
+    this.options.contexts.set(modelId, normalizeContextWindow(tokens))
+    void this.options.contexts.persist()
+    this.ctx.emit('llm/adapters-updated')
+    return { ok: true }
   }
 }

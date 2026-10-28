@@ -28,6 +28,15 @@ declare const Credits: z.ZodObject<{
     plan: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type CreditsReply = z.infer<typeof Credits>;
+declare const Contexts: z.ZodObject<{
+    models: z.ZodArray<z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        contextWindow: z.ZodOptional<z.ZodNumber>;
+    }, z.core.$strip>>;
+    overrides: z.ZodRecord<z.ZodString, z.ZodNumber>;
+}, z.core.$strip>;
+export type ContextsReply = z.infer<typeof Contexts>;
 export declare const REMOTE: import("@deepseek-ai/dsh-typert-protocol").TypertRemoteInfo<Readonly<Record<string, import("@deepseek-ai/dsh-typert-protocol").TypertRemoteMethod<object, unknown, "unary", never, unknown> | import("@deepseek-ai/dsh-typert-protocol").TypertRemoteMethod<object, unknown, "stream", unknown, unknown>>>>;
 export default REMOTE;
 declare module '@deepseek-ai/dsh-typert-protocol' {
@@ -35,6 +44,10 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
         workbuddyProvider: {
             command(action: ControlAction): Promise<RemoteResult<ControlReply>>;
             credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>;
+            contexts(): Promise<RemoteResult<ContextsReply>>;
+            setContext(modelId: string, tokens: number): Promise<RemoteResult<{
+                ok: boolean;
+            }>>;
         };
     }
 }

@@ -18,6 +18,17 @@ const Credits = z.object({
   plan: z.string().optional(),
 })
 export type CreditsReply = z.infer<typeof Credits>
+const ContextModel = z.object({
+  id: z.string(),
+  name: z.string(),
+  contextWindow: z.number().optional(),
+})
+const Contexts = z.object({
+  models: z.array(ContextModel),
+  overrides: z.record(z.string(), z.number()),
+})
+export type ContextsReply = z.infer<typeof Contexts>
+const SetContextReply = z.object({ ok: z.boolean() })
 const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,
   typeSymbol: 'dsh-provider#workbuddy:' + name, create: () => schema,
   jsonSchema: z.toJSONSchema(schema),
@@ -25,6 +36,8 @@ const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,
 const actionCodec = codec(Action, 'action')
 const sessionIdCodec = codec(z.string(), 'sessionId')
 const refreshCodec = codec(z.boolean(), 'refresh')
+const modelIdCodec = codec(z.string(), 'modelId')
+const tokensCodec = codec(z.number(), 'tokens')
 export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods: {
   'workbuddyProvider/command': {
     service: 'workbuddyProvider', invocation: { kind: 'direct' },
@@ -39,6 +52,19 @@ export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods:
     ],
     result: codec(Credits, 'credits'),
   },
+  'workbuddyProvider/contexts': {
+    service: 'workbuddyProvider', invocation: { kind: 'direct' },
+    parameters: [],
+    result: codec(Contexts, 'contexts'),
+  },
+  'workbuddyProvider/setContext': {
+    service: 'workbuddyProvider', invocation: { kind: 'direct' },
+    parameters: [
+      { name: 'modelId', source: 'json', codec: modelIdCodec, strictCodec: modelIdCodec },
+      { name: 'tokens', source: 'json', codec: tokensCodec, strictCodec: tokensCodec },
+    ],
+    result: codec(SetContextReply, 'setContext'),
+  },
 } }, z)
 export default REMOTE
 
@@ -47,6 +73,8 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     workbuddyProvider: {
       command(action: ControlAction): Promise<RemoteResult<ControlReply>>
       credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>
+      contexts(): Promise<RemoteResult<ContextsReply>>
+      setContext(modelId: string, tokens: number): Promise<RemoteResult<{ ok: boolean }>>
     }
   }
 }
