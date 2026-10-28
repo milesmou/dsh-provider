@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials'
+import { SETTINGS_NAMESPACE } from './identity.js'
 
 export type WorkBuddyRegion = 'cn' | 'intl'
 export const SITES = {
@@ -63,7 +64,9 @@ export class WorkBuddySession {
     private readonly transport: typeof fetch = fetch,
     private readonly readDesktop: () => Promise<unknown> = async () => JSON.parse(await readFile(desktopAuthPath(region), 'utf8')),
     private readonly endpoint: string = SITES[region].endpoint,
-  ) { this.key = credentialKey('llm-codebuddy-provider', 'workbuddy-' + region) }
+  ) {
+    this.key = credentialKey(SETTINGS_NAMESPACE, 'workbuddy-' + region)
+  }
 
   headers(login: Login): Record<string, string> {
     const site = SITES[this.region]

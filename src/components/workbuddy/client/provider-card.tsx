@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react'
 import { CodeBuddyKeyCard } from './card.js'
 import type { CredentialActions } from './card.js'
 import type { Mode } from '../config.js'
-import type { WorkBuddyRegion, WorkBuddyStatus } from '../workbuddy.js'
+import type { WorkBuddyRegion, WorkBuddyStatus } from '../session.js'
 import type { ControlAction, ControlReply } from '../remote.js'
 
 export interface ConnectionState { mode: Mode; region: WorkBuddyRegion; writable: boolean; login?: WorkBuddyStatus }
@@ -16,7 +16,7 @@ const control: CSSProperties = { font: 'inherit', color: 'inherit', background: 
   border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', borderRadius: 6, padding: '8px 12px' }
 const label: CSSProperties = { display: 'grid', gap: 6, fontSize: 13 }
 
-export function ProviderCard({ actions, connection }: { actions: CredentialActions; connection: ConnectionActions }) {
+export function WorkBuddyCard({ actions, connection }: { actions: CredentialActions; connection: ConnectionActions }) {
   const [state, setState] = useState<ConnectionState>()
   const [issue, setIssue] = useState('')
   const [busy, setBusy] = useState(false)
@@ -63,9 +63,9 @@ export function ProviderCard({ actions, connection }: { actions: CredentialActio
     finally { setBusy(false) }
   }
   const mode = state?.mode ?? 'api'
-  return <section aria-label="CodeBuddy 接入设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
-    <strong>CodeBuddy / WorkBuddy</strong>
-    <label style={label}>接入方式 <select style={control} aria-label="CodeBuddy 接入方式" value={mode} disabled={!state?.writable || busy}
+  return <section aria-label="WorkBuddy 组件设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
+    <strong>WorkBuddy 组件</strong>
+    <label style={label}>接入方式 <select style={control} aria-label="WorkBuddy 接入方式" value={mode} disabled={!state?.writable || busy}
       onChange={event => { void select(event.target.value as Mode, state?.region ?? 'cn') }}>
       <option value="api">CodeBuddy API Key</option><option value="workbuddy">WorkBuddy 登录（免 API Key）</option>
     </select></label>

@@ -3,11 +3,11 @@ import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { Action } from './remote.js'
 import type { ControlAction, ControlReply } from './remote.js'
-import type { WorkBuddySession } from './workbuddy.js'
+import type { WorkBuddySession } from './session.js'
 
-export class ProviderController extends TypertRemoteService {
+export class WorkBuddyController extends TypertRemoteService {
   constructor(ctx: Context, private readonly options: { session(): WorkBuddySession; enabled(): boolean }) {
-    super(ctx, 'codebuddyProvider')
+    super(ctx, 'workbuddyProvider')
   }
 
   @Remote

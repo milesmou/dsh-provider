@@ -10,13 +10,13 @@ import { createElement } from 'react'
 import { readFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { runInNewContext } from 'node:vm'
-import * as host from '../lib/index.js'
+import * as host from '../../../lib/index.js'
 
 // Exercise the same wrapper used by DSH's browser plugin loader.
 let client
-runInNewContext(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'), {
+runInNewContext(await readFile(new URL('../../../lib/client.js', import.meta.url), 'utf8'), {
   window: { __ModuleLoader__: { load: ({ id, factory }) => {
-    assert.equal(id, 'dsh-codebuddy-provider')
+    assert.equal(id, 'dsh-provider')
     client = factory(createRequire(import.meta.url))
   } } },
 })
@@ -32,7 +32,7 @@ test('saved credential changes reach the next model request without a plugin res
   await once(server, 'listening')
   t.after(() => { server.closeAllConnections(); server.close() })
   const ctx = new Context()
-  const keys = new Map([['CODEBUDDY_API_KEY', 'ck_first']])
+  const keys = new Map([['DSH_PROVIDER_WORKBUDDY_API_KEY', 'ck_first']])
   let fallbackSource = 'env'
   const refs = []
   ctx.provide('credentials', { resolve: async ref => {
@@ -40,23 +40,23 @@ test('saved credential changes reach the next model request without a plugin res
     const value = keys.get(ref)
     return value ? { value, source: 'file' } : { value: 'ck_stale_ambient', source: fallbackSource }
   } })
-  ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { CODEBUDDY_API_KEY: 'ck_stale_ambient' } }]))
+  ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { DSH_PROVIDER_WORKBUDDY_API_KEY: 'ck_stale_ambient' } }]))
   const runtime = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(host, { baseURL: `http://127.0.0.1:${server.address().port}/v2`, autoUpdateModels: false })
+  const fiber = ctx.plugin(host, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2`, autoUpdateModels: false } })
   await runtime.await()
   await fiber.await()
   const uid = fiber.uid
   const run = async () => {
     const chunks = []
-    for await (const chunk of ctx.llm.stream({ provider: 'codebuddy-api', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: 'ping' }] }] })) chunks.push(chunk)
+    for await (const chunk of ctx.llm.stream({ provider: 'workbuddy', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: 'ping' }] }] })) chunks.push(chunk)
     return chunks.at(-1)
   }
   try {
     assert.equal((await run()).reason.kind, 'stop')
-    keys.set('CODEBUDDY_API_KEY', 'ck_second')
+    keys.set('DSH_PROVIDER_WORKBUDDY_API_KEY', 'ck_second')
     assert.equal((await run()).reason.kind, 'stop')
     assert.deepEqual(headers, ['Bearer ck_first', 'Bearer ck_second'])
-    assert.deepEqual(refs, ['CODEBUDDY_API_KEY', 'CODEBUDDY_API_KEY'])
+    assert.deepEqual(refs, ['DSH_PROVIDER_WORKBUDDY_API_KEY', 'DSH_PROVIDER_WORKBUDDY_API_KEY'])
     assert.equal(fiber.uid, uid)
     keys.clear()
     for (const source of ['env', 'user-env', 'project-env']) {
@@ -71,25 +71,27 @@ test('saved credential changes reach the next model request without a plugin res
 
 async function clientFixture({ configured = false, writable = true, writeRefused = false, source = 'file' } = {}) {
   const calls = []
+  const mounts = []
   let registration
   let component
   let saved = configured
   let selection = { mode: 'api', workbuddyRegion: 'cn' }
   const ctx = {
     effect: () => {},
-    inject: (services, callback) => { assert.deepEqual(Array.from(services), ['remote.codebuddyProvider']); callback(ctx) },
+    plugin: plugin => { mounts.push(plugin.apply(ctx)) },
+    inject: (services, callback) => { assert.deepEqual(Array.from(services), ['remote.workbuddyProvider']); callback(ctx) },
     remote: {
       $mount: async () => () => {},
       settings: {
-        describe: async () => ({ ok: true, value: { writable: true, namespaces: [{ns: 'llm-codebuddy-provider', value: selection, revision: 1}] } }),
+        describe: async () => ({ ok: true, value: { writable: true, namespaces: [{ns: 'dsh-provider', value: { workbuddy: selection }, revision: 1}] } }),
         update: async (ns, value, revision) => {
-          assert.equal(ns, 'llm-codebuddy-provider'); assert.equal(revision, 1)
-          selection = value
+          assert.equal(ns, 'dsh-provider'); assert.equal(revision, 1)
+          selection = value.workbuddy
           return { ok: true }
         },
         mutate: () => { throw new Error('Secrets must not be written into settings') },
       },
-      codebuddyProvider: { command: async action => {
+      workbuddyProvider: { command: async action => {
         assert.equal(action, 'status')
         return { ok: true, value: { configured: false, issue: '本机凭据已加密' } }
       } },
@@ -110,6 +112,7 @@ async function clientFixture({ configured = false, writable = true, writeRefused
     },
   }
   await client.apply(ctx)
+  await Promise.all(mounts)
   return { ...registration.inject(), calls, component }
 }
 
@@ -117,7 +120,7 @@ test('settings card stores a key via credentials Remote and exposes only redacte
   const fixture = await clientFixture()
   assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
   await fixture.actions.save('  ck_new_key  ')
-  assert.deepEqual(fixture.calls, [{ ref: 'CODEBUDDY_API_KEY', value: 'ck_new_key' }])
+  assert.deepEqual(fixture.calls, [{ ref: 'DSH_PROVIDER_WORKBUDDY_API_KEY', value: 'ck_new_key' }])
   const status = await fixture.actions.status()
   assert.deepEqual({ ...status }, { configured: true, writable: true })
   assert.ok(!JSON.stringify(status).includes('ck_new_key'))
@@ -159,6 +162,6 @@ test('settings card renders a masked API key input with browser autofill disable
   assert.match(html, /type="password"/)
   assert.match(html, /autoComplete="new-password"/)
   assert.match(html, /保存密钥/)
-  assert.ok(!html.includes('CODEBUDDY_API_KEY'))
+  assert.ok(!html.includes('DSH_PROVIDER_WORKBUDDY_API_KEY'))
   assert.ok(!html.includes('30 分钟'))
 })

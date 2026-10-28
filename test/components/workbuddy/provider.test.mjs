@@ -5,13 +5,13 @@ import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
 import { LlmRuntime, BlockAssembler, attributionHeaders, createAssistantMessage, createToolResultMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
-import { CodeBuddyAdapter } from '../lib/adapter.js'
-import { Config, resolveBaseURL, validateModels } from '../lib/config.js'
-import { toMessages } from '../lib/messages.js'
-import * as plugin from '../lib/index.js'
+import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
+import { Config, resolveBaseURL, validateModels } from '../../../lib/components/workbuddy/config.js'
+import { toMessages } from '../../../lib/components/workbuddy/messages.js'
+import * as plugin from '../../../lib/index.js'
 
 const config = (values = {}) => Config(values)
-const request = (values = {}) => ({ provider: 'codebuddy-api', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: '你好' }] }], ...values })
+const request = (values = {}) => ({ provider: 'workbuddy', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: '你好' }] }], ...values })
 const chunk = (delta, finish_reason = null) => ({ id: 'chat-1', object: 'chat.completion.chunk', created: 1, model: 'auto', choices: [{ index: 0, delta, finish_reason }] })
 const sse = (...chunks) => chunks.map(value => `data: ${JSON.stringify(value)}\n\n`).join('') + 'data: [DONE]\n\n'
 
@@ -94,7 +94,7 @@ test('interleaved tool argument fragments and delayed IDs retain exact raw JSON'
 })
 
 test('assistant reasoning and real tool correlation ID survive a subsequent request', () => {
-  const assistant = createAssistantMessage({ source: { provider: 'codebuddy-api', model: 'auto' }, content: [
+  const assistant = createAssistantMessage({ source: { provider: 'workbuddy', model: 'auto' }, content: [
     { type: 'reasoning', text: 'inspect' }, { type: 'tool-call', id: ToolCallId('call_a'), name: 'read', arguments: '{}' },
   ] })
   const tool = createToolResultMessage({ callId: ToolCallId('call_a'), content: [{ type: 'text', text: 'result' }], isError: false })
@@ -153,18 +153,18 @@ test('actual Cordis lifecycle registers models and disposes the provider', async
   ctx.provide('launchEnvironment')
   ctx.set('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: {} }]))
   const llmFiber = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(plugin, { models: [{ id: 'glm-4.7', name: 'GLM-4.7', contextWindow: 200000, maxTokens: 4096 }] })
+  const fiber = ctx.plugin(plugin, { workbuddy: { models: [{ id: 'glm-4.7', name: 'GLM-4.7', contextWindow: 200000, maxTokens: 4096 }] } })
   await llmFiber.await()
   await fiber.await()
   try {
-    assert.ok(ctx.llm.listProviders().some(provider => provider.id === 'codebuddy-api'))
-    assert.equal((await ctx.llm.listModels('codebuddy-api'))[0].id, 'glm-4.7')
-    const model = await ctx.llm.resolveModelInfo('codebuddy-api', 'glm-4.7')
+    assert.ok(ctx.llm.listProviders().some(provider => provider.id === 'workbuddy'))
+    assert.equal((await ctx.llm.listModels('workbuddy'))[0].id, 'glm-4.7')
+    const model = await ctx.llm.resolveModelInfo('workbuddy', 'glm-4.7')
     assert.equal(model.context.contextWindow, 200000)
     const chunks = []
     for await (const value of ctx.llm.stream(request({ model: 'glm-4.7' }))) chunks.push(value)
     assert.equal(chunks.at(-1).reason.failure.code, 'MISSING_CREDENTIAL')
     await fiber.dispose()
-    assert.ok(!ctx.llm.listProviders().some(provider => provider.id === 'codebuddy-api'))
+    assert.ok(!ctx.llm.listProviders().some(provider => provider.id === 'workbuddy'))
   } finally { await ctx.fiber.dispose() }
 })

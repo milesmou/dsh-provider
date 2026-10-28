@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "dsh-codebuddy-provider",
-    "description": "在 DSH 中使用 CodeBuddy API 或 WorkBuddy 登录，启动时自动获取模型列表。"
+    "title": "dsh-provider",
+    "description": "以组件形式接入模型服务，当前支持 WorkBuddy 登录和 CodeBuddy API。"
   }
 }

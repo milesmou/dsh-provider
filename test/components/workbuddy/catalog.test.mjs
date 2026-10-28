@@ -4,10 +4,10 @@ import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
 import { LlmRuntime } from '@deepseek-ai/dsh-llm'
-import { ModelCatalog, catalogURL, parseCatalog } from '../lib/catalog.js'
-import { CodeBuddyAdapter } from '../lib/adapter.js'
-import { Config } from '../lib/config.js'
-import * as plugin from '../lib/index.js'
+import { ModelCatalog, catalogURL, parseCatalog } from '../../../lib/components/workbuddy/catalog.js'
+import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
+import { Config } from '../../../lib/components/workbuddy/config.js'
+import * as plugin from '../../../lib/index.js'
 
 test('official config and custom gateway catalog paths keep credentials on their own host', () => {
   assert.equal(catalogURL('https://copilot.tencent.com/v2'), 'https://copilot.tencent.com/v3/config')
@@ -47,15 +47,15 @@ test('startup refresh deduplicates calls; elapsed time and selector reads never 
   const adapter = new CodeBuddyAdapter(Config({}), { ...connection, catalog })
   t.mock.timers.tick(86400000)
   for (let index = 0; index < 3; index++) {
-    assert.deepEqual((await adapter.listModels('codebuddy-api')).map(model => model.id), ['auto', 'remote'])
+    assert.deepEqual((await adapter.listModels('workbuddy')).map(model => model.id), ['auto', 'remote'])
   }
   assert.equal(calls, 1)
   refuse = true
   await catalog.refresh()
   assert.equal(calls, 2)
   assert.equal(catalog.models()[1].name, 'Custom')
-  assert.deepEqual((await adapter.listModels('codebuddy-api')).map(model => model.id), ['auto', 'remote'])
-  assert.equal((await adapter.resolveModel('codebuddy-api', 'remote')).defaultMaxTokens, 25)
+  assert.deepEqual((await adapter.listModels('workbuddy')).map(model => model.id), ['auto', 'remote'])
+  assert.equal((await adapter.resolveModel('workbuddy', 'remote')).defaultMaxTokens, 25)
 })
 
 test('credential changes abort stale requests and cannot publish the previous account catalog', async t => {
@@ -96,17 +96,17 @@ test('DSH startup, credential save, and disposal update the real model registry'
   const runtime = ctx.plugin(LlmRuntime)
   await runtime.await()
   const interval = t.mock.method(globalThis, 'setInterval')
-  const fiber = ctx.plugin(plugin, { baseURL: `http://127.0.0.1:${server.address().port}/v2` })
+  const fiber = ctx.plugin(plugin, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` } })
   await fiber.await()
   t.after(() => ctx.fiber.dispose())
-  assert.deepEqual((await ctx.llm.listModels('codebuddy-api')).map(model => model.id), ['auto'])
+  assert.deepEqual((await ctx.llm.listModels('workbuddy')).map(model => model.id), ['auto'])
   // DSH can mount its credential store after the route has already started.
   ctx.provide('credentials', { resolve: async () => ({ value: 'ck_fake', source: 'file' }) })
   await new Promise(resolve => setImmediate(resolve))
-  assert.deepEqual((await ctx.llm.listModels('codebuddy-api')).map(model => model.id), ['auto', 'first'])
+  assert.deepEqual((await ctx.llm.listModels('workbuddy')).map(model => model.id), ['auto', 'first'])
   model = 'second'
-  ctx.emit('credentials/reference-updated', 'CODEBUDDY_API_KEY')
-  assert.deepEqual((await ctx.llm.listModels('codebuddy-api')).map(model => model.id), ['auto', 'second'])
+  ctx.emit('credentials/reference-updated', 'DSH_PROVIDER_WORKBUDDY_API_KEY')
+  assert.deepEqual((await ctx.llm.listModels('workbuddy')).map(model => model.id), ['auto', 'second'])
   assert.equal(calls, 2)
   assert.equal(interval.mock.callCount(), 0)
   await fiber.dispose()

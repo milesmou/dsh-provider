@@ -1,11 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { WorkBuddySession, parseDesktop, desktopAuthPath } from '../lib/workbuddy.js'
-import { CodeBuddyAdapter } from '../lib/adapter.js'
-import { workbuddyRequest } from '../lib/workbuddy-request.js'
-import { Config } from '../lib/config.js'
+import { WorkBuddySession, parseDesktop, desktopAuthPath } from '../../../lib/components/workbuddy/session.js'
+import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
+import { workbuddyRequest } from '../../../lib/components/workbuddy/workbuddy-request.js'
+import { Config } from '../../../lib/components/workbuddy/config.js'
 import { BlockAssembler } from '@deepseek-ai/dsh-llm'
-import { REMOTE } from '../lib/remote.js'
+import { REMOTE } from '../../../lib/components/workbuddy/remote.js'
 
 const desktop = (accessToken = 'desktop-secret') => ({ account: { uid: 'user', enterpriseId: 'team' },
   auth: { accessToken, refreshToken: 'desktop-refresh-never-used', expiresAt: Date.now() + 3600000, domain: 'tenant' } })
@@ -150,7 +150,7 @@ test('WorkBuddy streams DSH tool calls with original names and preserves reasoni
     },
   })
   const assembler = new BlockAssembler()
-  for await (const chunk of adapter.stream({ provider: 'codebuddy-api', model: 'auto', sessionId: 'session',
+  for await (const chunk of adapter.stream({ provider: 'workbuddy', model: 'auto', sessionId: 'session',
     tools: [{ name: 'fs.read:file', description: 'read', parameters: { properties: { path: { type: 'string' } } } }],
     messages: [{ role: 'user', content: [{ type: 'text', text: 'read a' }] }],
   })) assembler.push(chunk)
@@ -171,7 +171,7 @@ test('WorkBuddy streams DSH tool calls with original names and preserves reasoni
 })
 
 test('Remote validates commands and its status reply never contains credential fields', () => {
-  const method = REMOTE.methods['codebuddyProvider/command']
+  const method = REMOTE.methods['workbuddyProvider/command']
   assert.throws(() => method.input().create().parse({ action: 'read-secrets' }))
   assert.deepEqual(method.result.create().parse({ configured: true, access: 'secret' }), { configured: true })
 })

@@ -1,27 +1,16 @@
-# Merge this entry into the selected profile's cordis.patch.yml.
-# Save the API key in DSH Settings -> Models -> CodeBuddy API.
-- id: llm-codebuddy-provider
+# Merge into the selected profile's cordis.patch.yml.
+- id: dsh-provider
   config:
-    # Choose API key mode or WorkBuddy desktop/browser sign-in.
-    mode: api
-    workbuddyRegion: cn
-    environment: internal
-    # Optional: full API root or full chat/completions endpoint.
-    # baseURL: https://your-codebuddy-host/v2
-    timeoutMs: 180000
-    includeUsage: true
-    autoUpdateModels: true
-    models:
-      - id: auto
-        name: CodeBuddy Auto
-      # Examples from CodeBuddy CLI 2.177.0's shipped catalog.
-      # Uncomment only if the account/endpoint permits these exact IDs.
-      # - id: glm-4.7
-      #   name: GLM-4.7
-      #   contextWindow: 200000
-      #   maxTokens: 4096
-      # - id: deepseek-v4-pro
-      #   name: DeepSeek V4 Pro
-      #   contextWindow: 1000000
-      #   maxTokens: 4096
-      #   reasoningEfforts: [high]
+    workbuddy:
+      # api: saved CodeBuddy key; workbuddy: desktop/browser sign-in.
+      mode: api
+      workbuddyRegion: cn
+      environment: internal
+      # API-key mode only:
+      # baseURL: https://your-codebuddy-host/v2
+      timeoutMs: 180000
+      includeUsage: true
+      autoUpdateModels: true
+      models:
+        - id: auto
+          name: CodeBuddy Auto

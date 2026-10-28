@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "dsh-codebuddy-provider",
-    "description": "Use CodeBuddy API keys or WorkBuddy sign-in in DSH, with model discovery at startup."
+    "title": "dsh-provider",
+    "description": "Component-based model providers, with WorkBuddy sign-in and CodeBuddy API support."
   }
 }

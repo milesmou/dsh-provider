@@ -1,6 +1,15 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "jsx": "react-jsx", "noEmit": true, "rootDir": "src" },
-  "include": ["src/client/**/*.ts", "src/client/**/*.tsx"],
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "rootDir": "src"
+  },
+  "include": [
+    "src/client/**/*.ts",
+    "src/client/**/*.tsx",
+    "src/components/**/client/**/*.ts",
+    "src/components/**/client/**/*.tsx"
+  ],
   "exclude": []
 }

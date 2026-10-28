@@ -11,6 +11,11 @@
     "skipLibCheck": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/client"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/client",
+    "src/components/**/client"
+  ]
 }
