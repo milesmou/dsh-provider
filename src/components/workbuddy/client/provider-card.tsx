@@ -118,7 +118,7 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
       </div>
       {url ? <a href={url} target="_blank" rel="noopener noreferrer">登录页面未自动打开？点此手动打开，完成后将自动连接</a> : null}
     </section>}
-    <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? 'max'} disabled={!state?.writable || busy}
+    <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? 'middle'} disabled={!state?.writable || busy}
       onChange={event => { void chooseContext(event.target.value as ContextWindowMode) }}>
       <option style={selectColors} value="light">轻量</option>
       <option style={selectColors} value="middle">均衡</option>

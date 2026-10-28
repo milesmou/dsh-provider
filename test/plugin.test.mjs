@@ -13,7 +13,7 @@ test('package and root plugin expose dsh-provider with namespaced WorkBuddy conf
   const config = plugin.Config({ workbuddy: { mode: 'workbuddy', workbuddyRegion: 'intl' } })
   assert.equal(config.workbuddy.mode.get(), 'workbuddy')
   assert.equal(config.workbuddy.workbuddyRegion.get(), 'intl')
-  assert.equal(config.workbuddy.contextWindow.get(), 'max')
+  assert.equal(config.workbuddy.contextWindow.get(), 'middle')
   assert.equal(TYPERT.package, 'dsh-provider')
   assert.equal(TYPERT.invocations[0].namespace, 'workbuddyProvider')
 })

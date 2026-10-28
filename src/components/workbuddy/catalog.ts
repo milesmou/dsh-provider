@@ -108,7 +108,7 @@ export class ModelCatalog {
     private readonly connection: CatalogConnection,
     private readonly changed: () => void = () => {},
     /** Which context window the adapter should advertise (settings choice). */
-    private readonly contextPolicy: () => ContextWindowMode = () => 'max',
+    private readonly contextPolicy: () => ContextWindowMode = () => 'middle',
   ) {}
 
   /**
