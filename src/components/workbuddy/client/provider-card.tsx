@@ -69,6 +69,27 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
     } catch { setIssue('WorkBuddy 操作失败，请重试。') }
     finally { setBusy(false) }
   }
+  // 点击“浏览器登录”时在同步点击栈内先开一个占位窗口，避免异步拿到 URL 后
+  // window.open 被浏览器弹窗拦截；随后把该窗口导航到真正的登录地址。
+  async function startLogin() {
+    const popup = window.open('about:blank', '_blank')
+    setBusy(true); setIssue('')
+    try {
+      const result = await connection.control('login')
+      if (result.url) {
+        if (popup && !popup.closed) { popup.location.href = result.url; try { popup.focus() } catch { /* 跨域后无法 focus */ } }
+        setURL(result.url); setPolling(true); setIssue('')
+      } else {
+        try { popup?.close() } catch { /* 已关闭 */ }
+        setURL(''); setPolling(false); setIssue(result.issue ?? '')
+        setState(await connection.status())
+      }
+    } catch {
+      try { popup?.close() } catch { /* 已关闭 */ }
+      setURL(''); setPolling(false); setIssue('WorkBuddy 操作失败，请重试。')
+    }
+    finally { setBusy(false) }
+  }
   const mode = state?.mode ?? 'api'
   return <section aria-label="WorkBuddy 组件设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
     <strong>WorkBuddy 组件</strong>
@@ -85,10 +106,10 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
       <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>复用本机登录态，工具由 DSH 执行。若本机凭据已加密，请使用浏览器登录。模型列表在启动、切换接入方式或完成登录时获取。</p>
       {state?.login?.issue ? <p role="note" style={{ margin: 0, fontSize: 12 }}>{state.login.issue}</p> : null}
       <div style={{ display: 'flex', gap: 10 }}>
-        <button style={control} type="button" disabled={busy || polling} onClick={() => { void command('login') }}>浏览器登录</button>
+        <button style={control} type="button" disabled={busy || polling} onClick={() => { void startLogin() }}>浏览器登录</button>
         {polling ? <button style={control} type="button" disabled={busy} onClick={() => { void command('cancel') }}>取消登录</button> : null}
       </div>
-      {url ? <a href={url} target="_blank" rel="noopener noreferrer">打开 WorkBuddy 登录页面，完成后将自动连接</a> : null}
+      {url ? <a href={url} target="_blank" rel="noopener noreferrer">登录页面未自动打开？点此手动打开，完成后将自动连接</a> : null}
     </section>}
     {issue ? <p role="alert" style={{ margin: 0, fontSize: 12 }}>{issue}</p> : null}
   </section>
