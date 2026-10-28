@@ -1,0 +1,3 @@
+- insert:
+    - id: llm-codebuddy-provider
+      name: dsh-codebuddy-provider
