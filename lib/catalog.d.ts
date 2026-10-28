@@ -1,7 +1,12 @@
 import type { ModelConfig } from './config.js';
 interface CatalogConnection {
     baseURL: string;
-    resolveApiKey(): Promise<string>;
+    resolveApiKey?(): Promise<string>;
+    authenticate?(signal?: AbortSignal): Promise<{
+        apiKey: string;
+        headers: Record<string, string>;
+    }>;
+    catalogURL?: string;
     fetch?: typeof fetch;
 }
 /** The official CLI uses /v3/config; custom OpenAI gateways use /models. */

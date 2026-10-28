@@ -1,4 +1,9 @@
 import z from '@deepseek-ai/schemastery'
+import type { Volatile } from '@deepseek-ai/cordis'
+import type { WorkBuddyRegion } from './workbuddy.js'
+
+export type Mode = 'api' | 'workbuddy'
+export type PluginConfig = Options & { mode: Volatile<Mode>; workbuddyRegion: Volatile<WorkBuddyRegion> }
 
 export interface ModelConfig {
   id: string
@@ -18,6 +23,8 @@ export interface Options {
 }
 
 export const Config = z.object({
+  mode: z.union(['api', 'workbuddy']).default('api').volatile(),
+  workbuddyRegion: z.union(['cn', 'intl']).default('cn').volatile(),
   environment: z.union(['internal', 'overseas', 'ioa']).default('internal'),
   baseURL: z.string().default(''),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),

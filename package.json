@@ -1,7 +1,7 @@
 {
   "name": "dsh-codebuddy-provider",
-  "version": "0.1.4",
-  "description": "CodeBuddy API-key model provider for DeepSeek Harness.",
+  "version": "0.2.0",
+  "description": "CodeBuddy API and WorkBuddy sign-in model provider for DeepSeek Harness.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/milesmou/dsh-codebuddy-provider.git"
@@ -23,7 +23,8 @@
       "default": "./lib/client.js"
     },
     "./package.json": "./package.json",
-    "./locale/*.json": "./locale/*.json"
+    "./locale/*.json": "./locale/*.json",
+    "./typert": "./lib/remote.js"
   },
   "files": [
     "lib",
@@ -31,7 +32,8 @@
     "examples",
     "README.md",
     "LICENSE",
-    "locale/*.json"
+    "locale/*.json",
+    "THIRD_PARTY_NOTICES.md"
   ],
   "keywords": [
     "dsh-plugin",
@@ -65,7 +67,8 @@
     "build:client": "tsc -p tsconfig.client.json && node build-client.mjs"
   },
   "dependencies": {
-    "openai": "7.45.0"
+    "openai": "7.45.0",
+    "zod": "4.4.3"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
@@ -73,7 +76,8 @@
     "@deepseek-ai/dsh-llm": "0.2.1-rc.2",
     "@deepseek-ai/schemastery": "~3.18.5",
     "@deepseek-ai/dsh-credentials": "0.2.1-rc.2",
-    "react": "^18.2.0"
+    "react": "^18.2.0",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
@@ -94,6 +98,7 @@
     "esbuild": "^0.25.12",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@deepseek-ai/dsh-typert-protocol": "0.2.1-rc.2"
   }
 }

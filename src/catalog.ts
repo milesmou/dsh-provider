@@ -2,7 +2,9 @@ import type { ModelConfig } from './config.js'
 
 interface CatalogConnection {
   baseURL: string
-  resolveApiKey(): Promise<string>
+  resolveApiKey?(): Promise<string>
+  authenticate?(signal?: AbortSignal): Promise<{ apiKey: string; headers: Record<string, string> }>
+  catalogURL?: string
   fetch?: typeof fetch
 }
 
@@ -76,11 +78,12 @@ export class ModelCatalog {
     const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(10000)])
     const task = (async () => {
       try {
-        const apiKey = await this.connection.resolveApiKey()
+        const auth = this.connection.authenticate ? await this.connection.authenticate(signal) : undefined
+        const apiKey = auth?.apiKey ?? await this.connection.resolveApiKey!()
         signal.throwIfAborted()
-        const response = await (this.connection.fetch ?? fetch)(catalogURL(this.connection.baseURL), {
-          headers: { Accept: 'application/json', Authorization: `Bearer ${apiKey}`, 'X-API-Key': apiKey,
-            'User-Agent': 'CLI/2.177.0 CodeBuddy/2.177.0', 'X-Product': 'SaaS' },
+        const response = await (this.connection.fetch ?? fetch)(this.connection.catalogURL ?? catalogURL(this.connection.baseURL), {
+          headers: { Accept: 'application/json', ...(auth?.headers ?? { Authorization: `Bearer ${apiKey}`, 'X-API-Key': apiKey,
+            'User-Agent': 'CLI/2.177.0 CodeBuddy/2.177.0', 'X-Product': 'SaaS' }) },
           signal, redirect: 'error',
         })
         if (!response.ok) { await response.body?.cancel(); throw new Error('CodeBuddy catalog unavailable') }

@@ -69,17 +69,30 @@ test('saved credential changes reach the next model request without a plugin res
   } finally { await ctx.fiber.dispose() }
 })
 
-function clientFixture({ configured = false, writable = true, writeRefused = false, source = 'file' } = {}) {
+async function clientFixture({ configured = false, writable = true, writeRefused = false, source = 'file' } = {}) {
   const calls = []
   let registration
   let component
   let saved = configured
+  let selection = { mode: 'api', workbuddyRegion: 'cn' }
   const ctx = {
+    effect: () => {},
+    inject: (services, callback) => { assert.deepEqual(Array.from(services), ['remote.codebuddyProvider']); callback(ctx) },
     remote: {
+      $mount: async () => () => {},
       settings: {
-        describe: () => { throw new Error('API key configuration must not depend on environment references in settings') },
+        describe: async () => ({ ok: true, value: { writable: true, namespaces: [{ns: 'llm-codebuddy-provider', value: selection, revision: 1}] } }),
+        update: async (ns, value, revision) => {
+          assert.equal(ns, 'llm-codebuddy-provider'); assert.equal(revision, 1)
+          selection = value
+          return { ok: true }
+        },
         mutate: () => { throw new Error('Secrets must not be written into settings') },
       },
+      codebuddyProvider: { command: async action => {
+        assert.equal(action, 'status')
+        return { ok: true, value: { configured: false, issue: '本机凭据已加密' } }
+      } },
       credentials: {
         describe: async refs => ({ ok: true, value: { [refs[0]]: { configured: saved, writable, source } } }),
         set: async (ref, value) => {
@@ -96,12 +109,12 @@ function clientFixture({ configured = false, writable = true, writeRefused = fal
       register: (options, card) => { registration = options; component = card; return () => {} },
     },
   }
-  client.apply(ctx)
-  return { actions: registration.inject().actions, calls, component }
+  await client.apply(ctx)
+  return { ...registration.inject(), calls, component }
 }
 
 test('settings card stores a key via credentials Remote and exposes only redacted state', async () => {
-  const fixture = clientFixture()
+  const fixture = await clientFixture()
   assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
   await fixture.actions.save('  ck_new_key  ')
   assert.deepEqual(fixture.calls, [{ ref: 'CODEBUDDY_API_KEY', value: 'ck_new_key' }])
@@ -112,15 +125,25 @@ test('settings card stores a key via credentials Remote and exposes only redacte
 
 test('settings ignores ambient keys and lets the user save a stored key instead', async () => {
   for (const source of ['env', 'user-env', 'project-env']) {
-    const fixture = clientFixture({ configured: true, source })
+    const fixture = await clientFixture({ configured: true, source })
     assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
     await fixture.actions.save('ck_saved')
     assert.deepEqual({ ...await fixture.actions.status() }, { configured: true, writable: true })
   }
 })
 
+test('switching to WorkBuddy stores only mode and region and reads its dedicated status namespace', async () => {
+  const fixture = await clientFixture()
+  await fixture.connection.select('workbuddy', 'intl')
+  const state = await fixture.connection.status()
+  assert.equal(state.mode, 'workbuddy')
+  assert.equal(state.region, 'intl')
+  assert.equal(state.login.configured, false)
+  assert.equal(fixture.calls.length, 0)
+})
+
 test('settings card rejects invalid keys and does not reflect server error secrets', async () => {
-  const fixture = clientFixture({ writeRefused: true })
+  const fixture = await clientFixture({ writeRefused: true })
   await assert.rejects(() => fixture.actions.save(''), /Invalid credential/)
   await assert.rejects(() => fixture.actions.save('ck_bad\nkey'), /Invalid credential/)
   assert.equal(fixture.calls.length, 0)
@@ -130,8 +153,8 @@ test('settings card rejects invalid keys and does not reflect server error secre
   })
 })
 
-test('settings card renders a masked API key input with browser autofill disabled', () => {
-  const fixture = clientFixture()
+test('settings card renders a masked API key input with browser autofill disabled', async () => {
+  const fixture = await clientFixture()
   const html = renderToStaticMarkup(createElement(fixture.component, { actions: fixture.actions }))
   assert.match(html, /type="password"/)
   assert.match(html, /autoComplete="new-password"/)

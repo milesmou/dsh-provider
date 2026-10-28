@@ -2,6 +2,9 @@
 # Save the API key in DSH Settings -> Models -> CodeBuddy API.
 - id: llm-codebuddy-provider
   config:
+    # Choose API key mode or WorkBuddy desktop/browser sign-in.
+    mode: api
+    workbuddyRegion: cn
     environment: internal
     # Optional: full API root or full chat/completions endpoint.
     # baseURL: https://your-codebuddy-host/v2

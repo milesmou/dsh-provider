@@ -1,4 +1,11 @@
 import z from '@deepseek-ai/schemastery';
+import type { Volatile } from '@deepseek-ai/cordis';
+import type { WorkBuddyRegion } from './workbuddy.js';
+export type Mode = 'api' | 'workbuddy';
+export type PluginConfig = Options & {
+    mode: Volatile<Mode>;
+    workbuddyRegion: Volatile<WorkBuddyRegion>;
+};
 export interface ModelConfig {
     id: string;
     name?: string;
@@ -15,6 +22,8 @@ export interface Options {
     models: ModelConfig[];
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
+    mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
+    workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
     environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;
@@ -34,6 +43,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         reasoningEfforts: z<string[], string[], "plain">;
     }>>[], "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
+    mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
+    workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
     environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;

@@ -8,10 +8,14 @@ import type { ContentBlock, GenerateOptions, LlmResolvedModelInfo, StreamChunk, 
 import type { ModelConfig, Options } from './config.js'
 import { toMessages } from './messages.js'
 import type { ModelCatalog } from './catalog.js'
+import { workbuddyRequest } from './workbuddy-request.js'
 
-interface Connection {
+export interface Connection {
   baseURL: string
-  resolveApiKey: () => Promise<string>
+  resolveApiKey?: () => Promise<string>
+  authenticate?: (signal?: AbortSignal) => Promise<{ apiKey: string; headers: Record<string, string> }>
+  workbuddy?: boolean
+  providerName?: string
   fetch?: typeof fetch
   catalog?: ModelCatalog
 }
@@ -61,7 +65,7 @@ function failureOf(error: unknown, apiKey: string, aborted: boolean): LlmError {
 export class CodeBuddyAdapter extends LlmAdapter {
   constructor(private readonly config: Options, private readonly connection: Connection) { super() }
 
-  override providerInfo(provider: string) { return { id: provider, name: 'CodeBuddy API' } }
+  override providerInfo(provider: string) { return { id: provider, name: this.connection.providerName ?? 'CodeBuddy API' } }
 
   override async listModels(provider: string) {
     await this.connection.catalog?.ready()
@@ -86,7 +90,9 @@ export class CodeBuddyAdapter extends LlmAdapter {
 
   override async *stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
     options.signal?.throwIfAborted()
-    const apiKey = await this.connection.resolveApiKey()
+    const auth = this.connection.authenticate ? await this.connection.authenticate(options.signal)
+      : { apiKey: await this.connection.resolveApiKey!(), headers: {} }
+    const apiKey = auth.apiKey
     options.signal?.throwIfAborted()
     const deadline = AbortSignal.timeout(this.config.timeoutMs)
     const requestSignal = options.signal ? AbortSignal.any([options.signal, deadline]) : deadline
@@ -100,7 +106,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
     if (effort && !model.reasoningEfforts?.includes(effort)) {
       throw new LlmError(`CodeBuddy: configure reasoningEfforts for ${options.model} before selecting ${effort}.`, 'UNSUPPORTED_REASONING_EFFORT')
     }
-    const body: ChatCompletionCreateParamsStreaming = {
+    let body: ChatCompletionCreateParamsStreaming = {
       model: options.model, messages: toMessages(options), stream: true,
       ...(this.config.includeUsage ? { stream_options: { include_usage: true } } : {}),
       ...(options.tools?.length ? { tools: options.tools.map(tool => ({
@@ -111,6 +117,8 @@ export class CodeBuddyAdapter extends LlmAdapter {
       ...(options.stop?.length ? { stop: options.stop } : {}),
       ...(effort ? { reasoning_effort: effort as NonNullable<ChatCompletionCreateParamsStreaming['reasoning_effort']> } : {}),
     }
+    const prepared = this.connection.workbuddy ? workbuddyRequest(body, options) : undefined
+    if (prepared) body = prepared.body
     let stream: Awaited<ReturnType<typeof client.chat.completions.create>> | undefined
     const blocks: BlockState[] = []
     const tools = new Map<number, BlockState>()
@@ -120,7 +128,8 @@ export class CodeBuddyAdapter extends LlmAdapter {
     try {
       const response = await client.chat.completions.create(body, {
         // The official CLI supplies both headers for API-key authentication.
-        signal: requestSignal, headers: { 'X-API-Key': apiKey, ...attributionHeaders() },
+        signal: requestSignal, headers: this.connection.workbuddy ? { ...auth.headers, ...prepared?.headers }
+          : { 'X-API-Key': apiKey, ...attributionHeaders() },
       })
       stream = response
       for await (const chunk of response) {
@@ -160,7 +169,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
           // the provider has supplied the real correlation id.
           if (state.id) {
             const pending = state.text.slice(state.emitted ?? 0)
-            yield { type: 'tool-call-delta', index: state.index, id: ToolCallId(state.id), name: state.name || undefined, argumentsDelta: pending }
+            yield { type: 'tool-call-delta', index: state.index, id: ToolCallId(state.id), name: (prepared?.names.get(state.name) ?? state.name) || undefined, argumentsDelta: pending }
             state.emitted = state.text.length
           }
         }
@@ -172,7 +181,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
         let block: ContentBlock
         if (state.type === 'tool-call') {
           if (!state.id || !state.name) throw new LlmError('CodeBuddy: incomplete tool-call identity.', 'INVALID_RESPONSE')
-          block = { type: 'tool-call', id: ToolCallId(state.id), name: state.name, arguments: state.text }
+          block = { type: 'tool-call', id: ToolCallId(state.id), name: prepared?.names.get(state.name) ?? state.name, arguments: state.text }
         } else block = { type: state.type, text: state.text }
         yield { type: 'block-end', index: state.index, block }
       }
