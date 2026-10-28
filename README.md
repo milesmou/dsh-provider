@@ -6,34 +6,32 @@
 
 ## 使用方法
 
-需要 Node.js `>=22.19.0` 和 dsh `0.2.1-rc.2`。以下命令适用于 PowerShell。
+适配 dsh `0.2.1-rc.2`。
 
 **1. 安装插件**
 
-```powershell
-$env:npm_config_registry = 'https://registry.npmjs.org/'
-dsh plugin --profile desktop add "github:milesmou/dsh-codebuddy-provider#main"
+桌面版打开 **设置 → 插件**，添加以下来源：
+
+```text
+github:milesmou/dsh-codebuddy-provider#main
 ```
 
-`desktop` 为安装目标 profile，可替换为实际使用的名称（如 `web`）。仓库包含预编译文件，安装时无需执行构建脚本。
+仓库包含预编译文件，安装时无需执行构建脚本。更新后重新启动 DSH。
 
-**2. 配置密钥并启动 dsh**
+**2. 在 DSH 中配置密钥**
 
-```powershell
-$env:CODEBUDDY_API_KEY = 'ck_你的完整访问密钥'
-$env:CODEBUDDY_INTERNET_ENVIRONMENT = 'internal'
-dsh desktop
+打开 **设置 → 模型**，在页面下方的 **CodeBuddy API** 区域填写访问密钥（`ck_...`），点击 **保存密钥**。密钥保存在 DSH 凭据存储中，下次请求立即生效。
+
+在对话模型选择器中选择 **CodeBuddy API → CodeBuddy Auto**。默认使用国内接口。
+
+也可在 `$DSH_HOME/.env` 配置环境变量；修改后重新启动 DSH：
+
+```dotenv
+CODEBUDDY_API_KEY=ck_你的完整访问密钥
+CODEBUDDY_INTERNET_ENVIRONMENT=internal
 ```
 
-在模型选择器中选择 **CodeBuddy API → CodeBuddy Auto**。国内版使用 `internal`，国际版使用 `overseas`。
-
-如需自定义接口，在启动 dsh 前设置 API 根地址：
-
-```powershell
-$env:CODEBUDDY_BASE_URL = 'https://你的接口地址/v2'
-```
-
-自定义地址优先于区域设置，接口需兼容 OpenAI Chat Completions 流式协议。修改环境变量后需重新启动 dsh。
+国际版将 `internal` 改为 `overseas`；自定义接口可另设 `CODEBUDDY_BASE_URL=https://你的接口地址/v2`。进程环境中的密钥优先；若界面提示不可写，请先移除该环境变量并重启。
 
 **3. 添加其他模型（可选）**
 

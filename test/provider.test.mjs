@@ -10,7 +10,7 @@ import { Config, resolveBaseURL, validateModels } from '../lib/config.js'
 import { toMessages } from '../lib/messages.js'
 import * as plugin from '../lib/index.js'
 
-const config = (values = {}) => Config(values)
+const config = (values = {}) => { const result = Config(values); return { ...result, apiKeyEnv: result.apiKeyEnv.get() } }
 const request = (values = {}) => ({ provider: 'codebuddy-api', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: '你好' }] }], ...values })
 const chunk = (delta, finish_reason = null) => ({ id: 'chat-1', object: 'chat.completion.chunk', created: 1, model: 'auto', choices: [{ index: 0, delta, finish_reason }] })
 const sse = (...chunks) => chunks.map(value => `data: ${JSON.stringify(value)}\n\n`).join('') + 'data: [DONE]\n\n'

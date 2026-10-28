@@ -1,4 +1,5 @@
 import z from '@deepseek-ai/schemastery'
+import type { Volatile } from '@deepseek-ai/cordis'
 
 export interface ModelConfig {
   id: string
@@ -17,10 +18,12 @@ export interface Options {
   models: ModelConfig[]
 }
 
+export type PluginConfig = Omit<Options, 'apiKeyEnv'> & { apiKeyEnv: Volatile<string> }
+
 export const Config = z.object({
   environment: z.union(['internal', 'overseas', 'ioa']).default('internal'),
   baseURL: z.string().default(''),
-  apiKeyEnv: z.string().default('CODEBUDDY_API_KEY'),
+  apiKeyEnv: z.string().role('credential-ref').default('CODEBUDDY_API_KEY').volatile(),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),
   includeUsage: z.boolean().default(true),
   models: z.array(z.object({
