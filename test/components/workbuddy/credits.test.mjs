@@ -2,6 +2,9 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { parseBillingSummary, CreditLedger, projectRemain } from '../../../lib/components/workbuddy/credits.js'
 import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
 import { Config } from '../../../lib/components/workbuddy/config.js'
@@ -36,6 +39,30 @@ test('the credit ledger accumulates per session and guards invalid charges', () 
   assert.equal(ledger.of('s2'), 0.5)
   assert.equal(ledger.of('missing'), 0)
   assert.equal(ledger.of(undefined), 0)
+})
+
+test('the ledger persists session totals across plugin reloads', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-credit-ledger-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const file = join(dir, 'nested', 'credits.json')
+  const ledger = new CreditLedger(file)
+  ledger.add('s1', 0.03)
+  ledger.add('s2', 0.5)
+  ledger.add('s2', 0.25)
+  await ledger.persist()
+  const reloaded = new CreditLedger(file)
+  assert.equal(reloaded.of('s1'), 0.03)
+  assert.equal(reloaded.of('s2'), 0.75)
+  assert.equal(reloaded.of('new-session'), 0)
+})
+
+test('a corrupt ledger file starts empty instead of throwing', async t => {
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-credit-ledger-'))
+  t.after(() => rm(dir, { recursive: true, force: true }))
+  const file = join(dir, 'credits.json')
+  await writeFile(file, '{ not json', 'utf8')
+  const ledger = new CreditLedger(file)
+  assert.equal(ledger.of('s1'), 0)
 })
 
 const chunk = (delta, finish_reason = null) => ({ id: 'chat-1', object: 'chat.completion.chunk', created: 1,

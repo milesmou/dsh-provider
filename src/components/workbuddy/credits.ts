@@ -8,6 +8,9 @@
  *   with cycle total / remaining / used capacities. That is the account balance.
  */
 
+import { readFileSync } from 'node:fs'
+import { writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
+
 export interface AccountCredits {
   /** Sum of every package's cycle remaining capacity (the usable balance). */
   remain: number
@@ -88,21 +91,67 @@ export function projectRemain(balance: SessionBalance, sessionUsed: number): num
 }
 
 /**
- * Per-session credit ledger. Holds one running total per DSH session id for the
- * life of this process; a fresh plugin load starts every session at zero.
+ * Per-session credit ledger. Holds one running total per DSH session id. When a
+ * backing file is supplied the totals are loaded on construction and written
+ * back on change, so reopening a session after a restart keeps its spend.
  */
 export class CreditLedger {
   private readonly bySession = new Map<string, number>()
+  private saveTimer?: ReturnType<typeof setTimeout>
+
+  constructor(private readonly filename?: string) {
+    if (filename) this.restore()
+  }
 
   /** Add one request's credit charge to its session (ignored without a session or a valid charge). */
   add(sessionId: string | undefined, credit: number): void {
     if (!sessionId || !Number.isFinite(credit) || credit <= 0) return
     const key = String(sessionId)
     this.bySession.set(key, (this.bySession.get(key) ?? 0) + credit)
+    this.scheduleSave()
   }
 
   /** Total credits charged to one session, or 0 when it has spent none yet. */
   of(sessionId: string | undefined): number {
     return sessionId ? this.bySession.get(String(sessionId)) ?? 0 : 0
   }
+
+  /** Flush any pending write immediately (used on disposal and by tests). */
+  async persist(): Promise<void> {
+    if (this.saveTimer) { clearTimeout(this.saveTimer); this.saveTimer = undefined }
+    await this.write()
+  }
+
+  private restore(): void {
+    if (!this.filename) return
+    try {
+      const data: unknown = JSON.parse(readFileSync(this.filename, 'utf8'))
+      if (!data || typeof data !== 'object') return
+      for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+        const total = Number(value)
+        if (key && Number.isFinite(total) && total > 0) this.bySession.set(key, total)
+      }
+    } catch {
+      // Missing or corrupt ledger: start empty rather than block startup.
+    }
+  }
+
+  private scheduleSave(): void {
+    if (!this.filename || this.saveTimer) return
+    this.saveTimer = setTimeout(() => { this.saveTimer = undefined; void this.write() }, 100)
+    // Never keep the host process alive just to flush a ledger.
+    this.saveTimer.unref?.()
+  }
+
+  private async write(): Promise<void> {
+    if (!this.filename) return
+    const data: Record<string, number> = {}
+    for (const [key, total] of this.bySession) if (total > 0) data[key] = total
+    try {
+      await writeFileAtomic(this.filename, JSON.stringify(data, null, 2), { mode: 0o600, dirMode: 0o700 })
+    } catch {
+      // A failed ledger write must not fail the request that earned the charge.
+    }
+  }
 }
+

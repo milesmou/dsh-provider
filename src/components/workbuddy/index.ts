@@ -1,4 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
+import { join } from 'node:path'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { LlmAdapter, LlmError, assertUsableApiKey } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, ImageBlock } from '@deepseek-ai/dsh-llm'
@@ -59,7 +61,8 @@ export function apply(ctx: Context, config: PluginConfig): void {
   const environment = launchEnvironmentOf(ctx)
   const ref = credentialRef(API_KEY_REF)
   const sessions = new Map<WorkBuddyRegion, WorkBuddySession>()
-  const ledger = new CreditLedger()
+  const ledgerFile = join(resolveDshHome(), 'storages', 'dsh-provider-credits.json')
+  const ledger = new CreditLedger(ledgerFile)
   let catalog: ModelCatalog | undefined
   let adapter: CodeBuddyAdapter
   let selection = ''
@@ -119,5 +122,9 @@ export function apply(ctx: Context, config: PluginConfig): void {
       ctx.emit('llm/adapters-updated')
     }
   })
-  ctx.effect(() => () => { catalog?.dispose(); for (const value of sessions.values()) value.dispose() })
+  ctx.effect(() => () => {
+    catalog?.dispose()
+    for (const value of sessions.values()) value.dispose()
+    void ledger.persist()
+  })
 }

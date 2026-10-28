@@ -49,13 +49,22 @@ export interface SessionBalance {
  */
 export declare function projectRemain(balance: SessionBalance, sessionUsed: number): number;
 /**
- * Per-session credit ledger. Holds one running total per DSH session id for the
- * life of this process; a fresh plugin load starts every session at zero.
+ * Per-session credit ledger. Holds one running total per DSH session id. When a
+ * backing file is supplied the totals are loaded on construction and written
+ * back on change, so reopening a session after a restart keeps its spend.
  */
 export declare class CreditLedger {
+    private readonly filename?;
     private readonly bySession;
+    private saveTimer?;
+    constructor(filename?: string | undefined);
     /** Add one request's credit charge to its session (ignored without a session or a valid charge). */
     add(sessionId: string | undefined, credit: number): void;
     /** Total credits charged to one session, or 0 when it has spent none yet. */
     of(sessionId: string | undefined): number;
+    /** Flush any pending write immediately (used on disposal and by tests). */
+    persist(): Promise<void>;
+    private restore;
+    private scheduleSave;
+    private write;
 }
