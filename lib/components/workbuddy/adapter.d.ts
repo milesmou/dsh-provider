@@ -17,6 +17,10 @@ export interface Connection {
 export declare class CodeBuddyAdapter extends LlmAdapter {
     private readonly config;
     private readonly connection;
+    /** System prompts WorkBuddy refused as an unapproved channel this run. */
+    private readonly refusedSystems;
+    /** Models that refused tool results followed by the user's message this run. */
+    private readonly endsAfterTools;
     constructor(config: Options, connection: Connection);
     providerInfo(provider: string): {
         id: string;

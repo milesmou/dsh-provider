@@ -38,9 +38,11 @@ export function toMessages(options: GenerateOptions): ChatCompletionMessageParam
       messages.push({ role: 'tool', tool_call_id: message.toolCallId, content: textOf(message.content) })
     } else if (message.role === 'developer') {
       // This adapter declares no incremental tool-update capability. The
-      // Harness sends complete current tool schemas in options.tools.
+      // Harness sends complete current tool schemas in options.tools, so the
+      // notices about them carry nothing the model needs.
       const text = message.content.filter(block => block.type !== 'tool-addition' && block.type !== 'tool-removal')
-      if (text.length) messages.push({ role: 'user', content: textOf(text) })
+      // WorkBuddy takes `system`; it has no `developer` role.
+      if (text.length) messages.push({ role: 'system', content: textOf(text) })
     } else {
       messages.push({ role: message.role, content: textOf(message.content) })
     }

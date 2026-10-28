@@ -13,7 +13,9 @@ src/
       index.ts              # WorkBuddy routes and lifecycle
       config.ts             # Component schema
       session.ts            # Desktop/browser sign-in
-      adapter.ts            # Model streaming
+      adapter.ts            # Model streaming and refusal retries
+      shaping.ts            # Prompt spelling and refusal repair
+      tool-schema.ts        # Tool schema and name normalization
       catalog.ts            # Startup model discovery
       controller.ts         # WorkBuddy login commands
       remote.ts             # Component Remote descriptors
@@ -26,6 +28,8 @@ test/
 To add another Agent, create a sibling under `src/components/`, export its Host schema and lifecycle, and register it in the root `config.ts` and `index.ts`. Register its Client in `src/client/index.tsx` and aggregate its Remote descriptors in `src/remote.ts`. Use its own configuration node, route, credential keys, Remote namespace, and settings slot ID. Every Remote descriptor must name the owning npm package, `dsh-provider`.
 
 Only the root Loader entry owns the settings namespace (`dsh-provider`). WorkBuddy edits paths under `workbuddy`, and its Host component reacts to that namespace's settings events. Component lifecycles remain scoped to the root plugin; unloading it disposes all components.
+
+WorkBuddy's chat requests are shaped before they leave the component, following [magpie](https://github.com/yetone/magpie)'s WorkBuddy package: `shaping.ts` rewrites the client identity lines WorkBuddy refuses, moves a refused system prompt into the first user message once, and normalizes the request spellings WorkBuddy's chat endpoint takes; `tool-schema.ts` mends tool schemas (unions, enums, boolean subschemas, tuples, `$ref`) and makes tool names acceptable, mapping the model's calls back to DSH's names. `adapter.ts` applies each repair once per adapter run and remembers it, so later requests go out repaired from the start.
 
 WorkBuddy owns the `workbuddy` model route. Its API-key storage reference is `DSH_PROVIDER_WORKBUDDY_API_KEY`, and its browser logins use `dsh-provider/workbuddy-cn` or `dsh-provider/workbuddy-intl`. These keys are isolated from other components and do not enable environment-variable authentication.
 

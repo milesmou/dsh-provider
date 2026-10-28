@@ -9,6 +9,8 @@ import type { ModelConfig, Options } from './config.js'
 import { toMessages } from './messages.js'
 import type { ModelCatalog } from './catalog.js'
 import { workbuddyRequest } from './workbuddy-request.js'
+import { AFTER_TOOLS_REFUSED, clientChatHeaders, replyAfterToolResults, systemAsUser } from './shaping.js'
+import type { LooseBody } from './shaping.js'
 
 export interface Connection {
   baseURL: string
@@ -28,6 +30,14 @@ interface BlockState {
   name: string
   emitted?: number
 }
+
+/** WorkBuddy's 400 for a chat it reads as an unapproved channel. */
+const CHANNEL_REFUSED = /unapproved channel|illegal api invocation/i
+
+// The shaping helpers work on plain records; the OpenAI params type is narrower
+// than the wire body it describes.
+const loose = (body: ChatCompletionCreateParamsStreaming) => body as unknown as LooseBody
+const strict = (body: LooseBody | null) => body as unknown as ChatCompletionCreateParamsStreaming | null
 
 function usageOf(raw: Record<string, unknown>): TokenUsage {
   const count = (value: unknown): number => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? Math.floor(value) : 0
@@ -56,7 +66,7 @@ function failureOf(error: unknown, apiKey: string, aborted: boolean): LlmError {
     if (data && String(data.code) === '11128' && /unapproved channel/i.test(String(data.msg ?? data.message ?? ''))) {
       const id = error.requestID ?? data.requestId
       const requestId = typeof id === 'string' && /^[A-Za-z0-9_.-]{1,160}$/.test(id) && !id.includes(apiKey) ? id : undefined
-      return new LlmError('WorkBuddy/CodeBuddy 拒绝了当前调用渠道（11128）。当前直连接口未通过渠道校验；重新登录或重复发送不能保证解决。请使用官方客户端，或改用已获授权的 API 接入。', 'CHANNEL_RESTRICTED', {
+      return new LlmError('WorkBuddy/CodeBuddy 拒绝了当前调用渠道（11128）：当前提示词未通过渠道校验；重复发送不能保证解决。请使用官方客户端，或改用已获授权的 API 接入。', 'CHANNEL_RESTRICTED', {
         status, ...(requestId ? { requestId: ProviderRequestId(requestId) } : {}),
       })
     }
@@ -77,6 +87,11 @@ function failureOf(error: unknown, apiKey: string, aborted: boolean): LlmError {
 }
 
 export class CodeBuddyAdapter extends LlmAdapter {
+  /** System prompts WorkBuddy refused as an unapproved channel this run. */
+  private readonly refusedSystems = new Set<string>()
+  /** Models that refused tool results followed by the user's message this run. */
+  private readonly endsAfterTools = new Set<string>()
+
   constructor(private readonly config: Options, private readonly connection: Connection) { super() }
 
   override providerInfo(provider: string) { return { id: provider, name: this.connection.providerName ?? 'CodeBuddy API' } }
@@ -133,6 +148,49 @@ export class CodeBuddyAdapter extends LlmAdapter {
     }
     const prepared = this.connection.workbuddy ? workbuddyRequest(body, options) : undefined
     if (prepared) body = prepared.body
+    const headers = this.connection.workbuddy
+      ? { ...auth.headers, ...clientChatHeaders(), ...(prepared?.headers ?? {}) }
+      // The official CLI supplies both headers for API-key authentication.
+      : { 'X-API-Key': apiKey, ...attributionHeaders() }
+    const post = async (payload: ChatCompletionCreateParamsStreaming) =>
+      client.chat.completions.create(payload, { signal: requestSignal, headers })
+    // A refused system prompt and a refused reply-after-tools are body
+    // corrections WorkBuddy asks for, not transport retries: each is applied
+    // once and remembered for the rest of the run.
+    const send = async (): Promise<Awaited<ReturnType<typeof post>>> => {
+      let payload = body
+      if (prepared?.systemKey && this.refusedSystems.has(prepared.systemKey)) {
+        payload = strict(systemAsUser(loose(payload))) ?? payload
+      }
+      // A model known to turn tool results then the user's message away gets
+      // the empty reply between them up front.
+      if (prepared && this.endsAfterTools.has(options.model)) {
+        payload = strict(replyAfterToolResults(loose(payload))) ?? payload
+      }
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await post(payload)
+        } catch (error) {
+          if (attempt >= 2 || requestSignal.aborted || !(error instanceof OpenAI.APIError) || error.status !== 400) throw error
+          const said = error.message + (error.error === undefined ? ''
+            : ' ' + (typeof error.error === 'string' ? error.error : JSON.stringify(error.error)))
+          let next: ChatCompletionCreateParamsStreaming | null = null
+          if (prepared?.systemKey && !this.refusedSystems.has(prepared.systemKey) && CHANNEL_REFUSED.test(said)) {
+            next = strict(systemAsUser(loose(payload)))
+            if (next) {
+              this.refusedSystems.add(prepared.systemKey)
+              if (this.refusedSystems.size > 256) this.refusedSystems.delete(this.refusedSystems.values().next().value!)
+            }
+          }
+          if (!next && !this.endsAfterTools.has(options.model) && AFTER_TOOLS_REFUSED.test(said)) {
+            next = strict(replyAfterToolResults(loose(payload)))
+            if (next) this.endsAfterTools.add(options.model)
+          }
+          if (!next) throw error
+          payload = next
+        }
+      }
+    }
     let stream: Awaited<ReturnType<typeof client.chat.completions.create>> | undefined
     const blocks: BlockState[] = []
     const tools = new Map<number, BlockState>()
@@ -140,11 +198,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
     let finish: string | null = null
     let usage: TokenUsage | undefined
     try {
-      const response = await client.chat.completions.create(body, {
-        // The official CLI supplies both headers for API-key authentication.
-        signal: requestSignal, headers: this.connection.workbuddy ? { ...auth.headers, ...prepared?.headers }
-          : { 'X-API-Key': apiKey, ...attributionHeaders() },
-      })
+      const response = await send()
       stream = response
       for await (const chunk of response) {
         requestSignal.throwIfAborted()
