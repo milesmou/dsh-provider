@@ -12,6 +12,17 @@ type ObjectValue = Record<string, unknown>
 const object = (value: unknown): ObjectValue => value && typeof value === 'object' && !Array.isArray(value) ? value as ObjectValue : {}
 const positive = (value: unknown): number | undefined => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim()) : []
+/** Selectable context lengths a contextWindow object advertises, in the order given. */
+const supportedLengths = (value: unknown): number[] => {
+  const item = object(value)
+  return Array.isArray(item.supportedLengths)
+    ? item.supportedLengths.map(positive).filter((length): length is number => length !== undefined) : []
+}
+/** Highest capacity a contextWindow object advertises ({ defaultLength, supportedLengths }). */
+const supportedCapacity = (value: unknown): number | undefined => {
+  const lengths = supportedLengths(value)
+  return lengths.length ? Math.max(...lengths) : positive(object(value).defaultLength)
+}
 
 /**
  * Thinking levels one catalog entry advertises. WorkBuddy exposes either a
@@ -58,12 +69,23 @@ export function parseCatalog(value: unknown): ModelConfig[] {
     if (typeof raw.id !== 'string' || !raw.id.trim() || raw.id !== raw.id.trim()
       || raw.disabled === true || raw.supportsToolCall === false || (allowed && !allowed.has(raw.id))
       || (Array.isArray(raw.tags) && raw.tags.some(tag => ['text-to-image', 'image-to-image', 'text-to-video'].includes(String(tag))))) continue
-    const contextWindow = positive(raw.contextWindow ?? raw.maxAllowedSize ?? raw.maxInputTokens)
+    // The catalog may announce capacity as a number OR as a { defaultLength, supportedLengths }
+    // object. Read each form explicitly: testing each candidate through positive() stops an
+    // object form from shadowing the numeric maxAllowedSize/maxInputTokens fields.
+    const capacity = positive(raw.contextWindow) ?? positive(raw.maxAllowedSize) ?? positive(raw.maxInputTokens)
+      ?? supportedCapacity(raw.contextWindow)
+    // The disclosed selectable lengths become the light/middle/max tiers; a model that only
+    // announces one capacity still gets a single-element ladder so every tier resolves.
+    const disclosed = supportedLengths(raw.contextWindow)
+    const contextLengths = disclosed.length ? [...new Set(disclosed)].sort((a, b) => a - b)
+      : capacity ? [capacity] : []
+    const contextWindow = contextLengths.length ? contextLengths[contextLengths.length - 1] : capacity
     const maxTokens = positive(raw.maxTokens ?? raw.maxOutputTokens)
     models.set(raw.id, {
       id: raw.id,
       ...(typeof raw.name === 'string' && raw.name.trim() ? { name: raw.name } : {}),
       ...(contextWindow ? { contextWindow } : {}),
+      ...(contextLengths.length ? { contextLengths } : {}),
       ...(maxTokens ? { maxTokens: contextWindow ? Math.min(contextWindow, maxTokens) : maxTokens } : {}),
       ...(typeof raw.supportsImages === 'boolean' ? { supportsImages: raw.supportsImages } : {}),
       ...reasoningOf(raw),
@@ -90,9 +112,9 @@ export class ModelCatalog {
   ) {}
 
   /**
-   * Models as the adapter routes them. The settings choice sets a 300K/500K cap
-   * or asks for each model's own maximum; a smaller model capacity always wins
-   * so a request never exceeds the model's real capacity.
+   * Models as the adapter routes them. The settings choice is a light/middle/max
+   * tier that maps to each model's own disclosed lengths, so a request never
+   * exceeds what that model actually accepts.
    */
   models(): ModelConfig[] {
     const models = new Map(this.remote.map(model => [model.id, model]))
@@ -102,7 +124,7 @@ export class ModelCatalog {
     }
     const policy = this.contextPolicy()
     for (const [id, model] of models) {
-      models.set(id, { ...model, contextWindow: resolveContextWindow(policy, model.contextWindow) })
+      models.set(id, { ...model, contextWindow: resolveContextWindow(policy, model) })
     }
     // Keep the built-in baseline entry (Auto) ahead of the discovered models.
     return [...this.baseline.map(model => models.get(model.id)!), ...[...models.values()].filter(model => !this.baseline.some(item => item.id === model.id))]

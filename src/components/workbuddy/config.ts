@@ -3,28 +3,45 @@ import type { Volatile } from '@deepseek-ai/cordis'
 import type { WorkBuddyRegion } from './session.js'
 
 export type Mode = 'api' | 'workbuddy'
-/** Which context window the adapter advertises to DSH for every model. */
-export type ContextWindowMode = '300k' | '500k' | 'max'
+/** Which context-window tier the adapter advertises to DSH: the model's own light / middle / max length. */
+export type ContextWindowMode = 'light' | 'middle' | 'max'
 export type PluginConfig = Options & {
   mode: Volatile<Mode>
   workbuddyRegion: Volatile<WorkBuddyRegion>
   contextWindow: Volatile<ContextWindowMode>
 }
 
-/** Fallback working window when the catalog does not disclose a model's capacity. */
+/** Fallback working window when the catalog discloses no context length at all. */
 export const DEFAULT_CONTEXT_WINDOW = 500 * 1024
 
 /**
- * Resolve the effective context window for a model.
- * `max` uses the model's disclosed capacity (500K when unknown); the fixed
- * choices are absolute caps. In every case the model's own maximum wins when it
- * is smaller, so a request can never exceed what the model actually accepts.
+ * Ascending distinct context lengths a model's catalog entry disclosed (light → max).
+ * The model's maximum capacity is always included when known, so `max` can never
+ * exceed what the model advertises.
  */
-export function resolveContextWindow(mode: ContextWindowMode, modelMax?: number): number {
-  const base = mode === '300k' ? 300 * 1024
-    : mode === '500k' ? 500 * 1024
-    : modelMax && modelMax > 0 ? modelMax : DEFAULT_CONTEXT_WINDOW
-  return modelMax && modelMax > 0 ? Math.min(base, modelMax) : base
+export function contextTiers(model: Pick<ModelConfig, 'contextWindow' | 'contextLengths'>): number[] {
+  const lengths = new Set<number>()
+  for (const value of model.contextLengths ?? []) {
+    if (Number.isSafeInteger(value) && value > 0) lengths.add(value)
+  }
+  const capacity = model.contextWindow
+  if (typeof capacity === 'number' && Number.isSafeInteger(capacity) && capacity > 0) lengths.add(capacity)
+  return [...lengths].sort((a, b) => a - b)
+}
+
+/**
+ * Resolve the effective context window from the selected tier against the model's
+ * own disclosed lengths: `light` is the smallest, `middle` the median, and `max`
+ * the largest. A model that discloses no length falls back to the default window.
+ */
+export function resolveContextWindow(
+  mode: ContextWindowMode, model: Pick<ModelConfig, 'contextWindow' | 'contextLengths'>,
+): number {
+  const lengths = contextTiers(model)
+  if (!lengths.length) return DEFAULT_CONTEXT_WINDOW
+  if (mode === 'light') return lengths[0]
+  if (mode === 'middle') return lengths[Math.min(lengths.length - 1, Math.floor(lengths.length / 2))]
+  return lengths[lengths.length - 1]
 }
 
 /**
@@ -36,6 +53,8 @@ export interface ModelConfig {
   id: string
   name?: string
   contextWindow?: number
+  /** Ascending context lengths the catalog disclosed for tier selection (light → max). */
+  contextLengths?: number[]
   maxTokens?: number
   /** Accepted input modalities, when the catalog discloses them; absent means text-only default. */
   supportsImages?: boolean
@@ -57,7 +76,7 @@ export interface Options {
 export const Config = z.object({
   mode: z.union(['api', 'workbuddy']).default('api').volatile(),
   workbuddyRegion: z.union(['cn', 'intl']).default('cn').volatile(),
-  contextWindow: z.union(['300k', '500k', 'max']).default('max').volatile(),
+  contextWindow: z.union(['light', 'middle', 'max']).default('max').volatile(),
   environment: z.union(['internal', 'overseas', 'ioa']).default('internal'),
   baseURL: z.string().default(''),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),

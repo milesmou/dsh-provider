@@ -28,9 +28,9 @@ export declare class ModelCatalog {
     /** Which context window the adapter should advertise (settings choice). */
     contextPolicy?: () => ContextWindowMode);
     /**
-     * Models as the adapter routes them. The settings choice sets a 300K/500K cap
-     * or asks for each model's own maximum; a smaller model capacity always wins
-     * so a request never exceeds the model's real capacity.
+     * Models as the adapter routes them. The settings choice is a light/middle/max
+     * tier that maps to each model's own disclosed lengths, so a request never
+     * exceeds what that model actually accepts.
      */
     models(): ModelConfig[];
     refresh(): Promise<void>;

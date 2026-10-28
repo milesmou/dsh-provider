@@ -11,7 +11,7 @@ export interface ConnectionActions {
   status(): Promise<ConnectionState>
   select(mode: Mode, region: WorkBuddyRegion): Promise<void>
   control(action: ControlAction): Promise<ControlReply>
-  /** Persist the context-window choice (300K / 500K / model max). */
+  /** Persist the context-window tier (Light / Middle / Max). */
   context(mode: ContextWindowMode): Promise<void>
 }
 const control: CSSProperties = { font: 'inherit', color: 'inherit', background: 'transparent',
@@ -120,9 +120,9 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
     </section>}
     <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? 'max'} disabled={!state?.writable || busy}
       onChange={event => { void chooseContext(event.target.value as ContextWindowMode) }}>
-      <option style={selectColors} value="300k">300K</option>
-      <option style={selectColors} value="500k">500K</option>
-      <option style={selectColors} value="max">模型最大值</option>
+      <option style={selectColors} value="light">轻量</option>
+      <option style={selectColors} value="middle">均衡</option>
+      <option style={selectColors} value="max">最大</option>
     </select></label>
     {issue ? <p role="alert" style={{ margin: 0, fontSize: 12 }}>{issue}</p> : null}
   </section>

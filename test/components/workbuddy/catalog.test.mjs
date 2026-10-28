@@ -21,11 +21,31 @@ test('catalog selects CLI chat models, maps capacity, and rejects refused or emp
     models: [{ id: 'chat', name: 'Chat', maxAllowedSize: 100, maxOutputTokens: 200 },
       { id: 'not-cli' }, { id: 'image', tags: ['text-to-image'] },
       { id: 'disabled', disabled: true }, { id: 'no-tools', supportsToolCall: false }],
-  } }), [{ id: 'chat', name: 'Chat', contextWindow: 100, maxTokens: 100 }])
+  } }), [{ id: 'chat', name: 'Chat', contextWindow: 100, contextLengths: [100], maxTokens: 100 }])
   assert.deepEqual(parseCatalog({ data: [{ id: 'one' }, { id: 'one' }, { id: ' ' }] }), [{ id: 'one' }])
   for (const reply of [{ code: 123, data: { models: [{ id: 'wrong' }] } }, { data: [] }, {}, { data: { models: null } }]) {
     assert.throws(() => parseCatalog(reply))
   }
+})
+
+test('catalog reads capacity from the provider contextWindow object without shadowing maxAllowedSize', () => {
+  const parsed = parseCatalog({ code: 0, data: {
+    agents: [{ name: 'cli', models: ['deepseek-v4.1-flash'] }],
+    models: [{
+      id: 'deepseek-v4.1-flash', name: 'DeepSeek-V4.1-Flash',
+      contextWindow: { defaultLength: 300000, supportedLengths: [300000, 600000, 1000000] },
+      maxAllowedSize: 1000000, maxInputTokens: 1000000, maxOutputTokens: 128000,
+    }],
+  } })
+  assert.equal(parsed[0].contextWindow, 1000000)
+  assert.equal(parsed[0].maxTokens, 128000)
+})
+
+test('object-only contextWindow falls back to its highest supported length', () => {
+  const parsed = parseCatalog({ code: 0, data: { models: [
+    { id: 'object-only', contextWindow: { defaultLength: 300000, supportedLengths: [300000, 600000] } },
+  ] } })
+  assert.equal(parsed[0].contextWindow, 600000)
 })
 
 test('catalog parses thinking levels, defaults, and image capability', () => {
@@ -157,25 +177,30 @@ test('DSH startup, credential save, and disposal update the real model registry'
   assert.deepEqual(ctx.llm.listProviders(), [])
 })
 
-test('the settings choice sets the working window, capped by each model maximum', () => {
+test('the light/middle/max tiers map to each model\'s disclosed lengths', () => {
   const connection = { baseURL: 'https://gateway.example/v2' }
   const modelsWith = policy => Object.fromEntries(new ModelCatalog([
-    { id: 'big', name: 'Big' },
-    { id: 'mid', name: 'Mid', contextWindow: 200 * 1024 },
-    { id: 'huge', name: 'Huge', contextWindow: 1024 * 1024 },
+    { id: 'single', name: 'Single', contextWindow: 200 * 1024 },
+    { id: 'three', name: 'Three', contextWindow: 1000000, contextLengths: [300000, 600000, 1000000] },
+    { id: 'two', name: 'Two', contextWindow: 512000, contextLengths: [300000, 512000] },
+    { id: 'none', name: 'None' },
   ], connection, () => {}, () => policy).models().map(model => [model.id, model]))
 
-  const fixed300 = modelsWith('300k')
-  assert.equal(fixed300.big.contextWindow, 300 * 1024)
-  assert.equal(fixed300.mid.contextWindow, 200 * 1024)
-  assert.equal(fixed300.huge.contextWindow, 300 * 1024)
+  const light = modelsWith('light')
+  assert.equal(light.single.contextWindow, 200 * 1024) // one disclosed length → light = that length
+  assert.equal(light.three.contextWindow, 300000)
+  assert.equal(light.two.contextWindow, 300000)
+  assert.equal(light.none.contextWindow, 500 * 1024) // nothing disclosed → default window
 
-  const fixed500 = modelsWith('500k')
-  assert.equal(fixed500.big.contextWindow, 500 * 1024)
-  assert.equal(fixed500.huge.contextWindow, 500 * 1024)
+  const middle = modelsWith('middle')
+  assert.equal(middle.three.contextWindow, 600000) // median of [300K, 600K, 1M]
+  assert.equal(middle.two.contextWindow, 512000) // upper median of two lengths
+  assert.equal(middle.single.contextWindow, 200 * 1024)
+  assert.equal(middle.none.contextWindow, 500 * 1024)
 
-  const modelMax = modelsWith('max')
-  assert.equal(modelMax.big.contextWindow, 500 * 1024) // unknown capacity → 500K default
-  assert.equal(modelMax.mid.contextWindow, 200 * 1024)
-  assert.equal(modelMax.huge.contextWindow, 1024 * 1024)
+  const max = modelsWith('max')
+  assert.equal(max.three.contextWindow, 1000000)
+  assert.equal(max.two.contextWindow, 512000)
+  assert.equal(max.single.contextWindow, 200 * 1024)
+  assert.equal(max.none.contextWindow, 500 * 1024) // no capacity → default
 })

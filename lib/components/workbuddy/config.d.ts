@@ -2,22 +2,27 @@ import z from '@deepseek-ai/schemastery';
 import type { Volatile } from '@deepseek-ai/cordis';
 import type { WorkBuddyRegion } from './session.js';
 export type Mode = 'api' | 'workbuddy';
-/** Which context window the adapter advertises to DSH for every model. */
-export type ContextWindowMode = '300k' | '500k' | 'max';
+/** Which context-window tier the adapter advertises to DSH: the model's own light / middle / max length. */
+export type ContextWindowMode = 'light' | 'middle' | 'max';
 export type PluginConfig = Options & {
     mode: Volatile<Mode>;
     workbuddyRegion: Volatile<WorkBuddyRegion>;
     contextWindow: Volatile<ContextWindowMode>;
 };
-/** Fallback working window when the catalog does not disclose a model's capacity. */
+/** Fallback working window when the catalog discloses no context length at all. */
 export declare const DEFAULT_CONTEXT_WINDOW: number;
 /**
- * Resolve the effective context window for a model.
- * `max` uses the model's disclosed capacity (500K when unknown); the fixed
- * choices are absolute caps. In every case the model's own maximum wins when it
- * is smaller, so a request can never exceed what the model actually accepts.
+ * Ascending distinct context lengths a model's catalog entry disclosed (light → max).
+ * The model's maximum capacity is always included when known, so `max` can never
+ * exceed what the model advertises.
  */
-export declare function resolveContextWindow(mode: ContextWindowMode, modelMax?: number): number;
+export declare function contextTiers(model: Pick<ModelConfig, 'contextWindow' | 'contextLengths'>): number[];
+/**
+ * Resolve the effective context window from the selected tier against the model's
+ * own disclosed lengths: `light` is the smallest, `middle` the median, and `max`
+ * the largest. A model that discloses no length falls back to the default window.
+ */
+export declare function resolveContextWindow(mode: ContextWindowMode, model: Pick<ModelConfig, 'contextWindow' | 'contextLengths'>): number;
 /**
  * One model entry. Always produced by the catalog now; the fields beyond
  * identity are whatever the catalog disclosed (capacity, image support, and
@@ -27,6 +32,8 @@ export interface ModelConfig {
     id: string;
     name?: string;
     contextWindow?: number;
+    /** Ascending context lengths the catalog disclosed for tier selection (light → max). */
+    contextLengths?: number[];
     maxTokens?: number;
     /** Accepted input modalities, when the catalog discloses them; absent means text-only default. */
     supportsImages?: boolean;
@@ -46,7 +53,7 @@ export interface Options {
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
-    contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
+    contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
     environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;
@@ -54,7 +61,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
 }>>, Schemastery.ObjectT<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
-    contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
+    contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
     environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;
