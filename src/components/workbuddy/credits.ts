@@ -1,0 +1,81 @@
+/**
+ * WorkBuddy credit accounting. Two independent sources:
+ *
+ * - Per-session consumption: every chat completion's `usage` carries an exact
+ *   `credit` charge (e.g. 0.01). The adapter reports each charge here, keyed by
+ *   the DSH session id, so the UI can show what the current conversation spent.
+ * - Account remaining: the billing meter endpoint returns the resource packages
+ *   with cycle total / remaining / used capacities. That is the account balance.
+ */
+
+export interface AccountCredits {
+  /** Sum of every package's cycle remaining capacity (the usable balance). */
+  remain: number
+  /** Sum of every package's cycle total capacity. */
+  total: number
+  /** Sum of every package's cycle used capacity. */
+  used: number
+  /** Subscription plan name, when the endpoint names one. */
+  plan?: string
+  /** Capacity unit the endpoint reports (usually `credits`). */
+  unit: string
+}
+
+/** Billing meter path, on the same host as the model API. Note: no `/v2` prefix. */
+export const BILLING_PATH = '/billing/meter/get-user-resource-summary'
+
+const num = (value: unknown): number => {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+const round = (value: number): number => Math.round(value * 1e6) / 1e6
+
+/**
+ * Parse the billing meter's `data` object (the envelope's inner payload) into a
+ * balance. Aggregates every resource package; falls back to `TotalCredits` for
+ * the remaining balance when the endpoint reports no package list.
+ */
+export function parseBillingSummary(value: unknown): AccountCredits | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const data = value as Record<string, unknown>
+  const packages = Array.isArray(data.Packages) ? data.Packages : []
+  let total = 0
+  let remain = 0
+  let used = 0
+  let unit = 'credits'
+  for (const entry of packages) {
+    const item = entry && typeof entry === 'object' ? entry as Record<string, unknown> : {}
+    total += num(item.CycleTotalCapacity)
+    remain += num(item.CycleRemainCapacity)
+    used += num(item.CycleUsedCapacity)
+    if (typeof item.CapacityUnit === 'string' && item.CapacityUnit) unit = item.CapacityUnit
+  }
+  if (!packages.length) {
+    if (data.TotalCredits === undefined) return undefined
+    remain = num(data.TotalCredits)
+    total = remain
+  }
+  const plan = typeof data.SubscriptionPackageName === 'string' && data.SubscriptionPackageName
+    ? data.SubscriptionPackageName : undefined
+  return { remain: round(remain), total: round(total), used: round(used), unit, ...(plan ? { plan } : {}) }
+}
+
+/**
+ * Per-session credit ledger. Holds one running total per DSH session id for the
+ * life of this process; a fresh plugin load starts every session at zero.
+ */
+export class CreditLedger {
+  private readonly bySession = new Map<string, number>()
+
+  /** Add one request's credit charge to its session (ignored without a session or a valid charge). */
+  add(sessionId: string | undefined, credit: number): void {
+    if (!sessionId || !Number.isFinite(credit) || credit <= 0) return
+    const key = String(sessionId)
+    this.bySession.set(key, (this.bySession.get(key) ?? 0) + credit)
+  }
+
+  /** Total credits charged to one session, or 0 when it has spent none yet. */
+  of(sessionId: string | undefined): number {
+    return sessionId ? this.bySession.get(String(sessionId)) ?? 0 : 0
+  }
+}

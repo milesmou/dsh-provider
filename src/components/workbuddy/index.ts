@@ -13,6 +13,7 @@ import { API_KEY_REF } from './credential.js'
 import { SETTINGS_NAMESPACE, MODEL_ROUTE } from './identity.js'
 import { WorkBuddySession, SITES } from './session.js'
 import type { WorkBuddyRegion } from './session.js'
+import { CreditLedger } from './credits.js'
 import { WorkBuddyController } from './controller.js'
 
 export { Config } from './config.js'
@@ -59,6 +60,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
   const environment = launchEnvironmentOf(ctx)
   const ref = credentialRef(API_KEY_REF)
   const sessions = new Map<WorkBuddyRegion, WorkBuddySession>()
+  const ledger = new CreditLedger()
   let catalog: ModelCatalog | undefined
   let adapter: CodeBuddyAdapter
   let selection = ''
@@ -84,6 +86,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
       const site = SITES[login.region]
       connection = { baseURL: site.endpoint + '/v2', catalogURL: site.endpoint + '/v3/config',
         authenticate: signal => login.authenticate(signal), workbuddy: true, resolveImage,
+        recordCredit: (sessionId, credit) => ledger.add(sessionId, credit),
         providerName: login.region === 'cn' ? 'WorkBuddy' : 'WorkBuddy AI',
       }
     } else {
@@ -107,7 +110,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
   }
   rebuild()
   ctx.llm.registerAdapter([MODEL_ROUTE], new SwitchingAdapter(() => adapter))
-  ctx.plugin(WorkBuddyController, { session, enabled: () => mode.get() === 'workbuddy' })
+  ctx.plugin(WorkBuddyController, { session, ledger, enabled: () => mode.get() === 'workbuddy' })
   ctx.inject(['credentials'], () => { catalog?.credentialsChanged() })
   ctx.on('credentials/reference-updated', updated => {
     if (updated === ref && mode.get() === 'api') catalog?.credentialsChanged()

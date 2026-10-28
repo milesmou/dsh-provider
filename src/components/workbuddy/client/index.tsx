@@ -6,6 +6,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { WorkBuddyCard } from './provider-card.js'
 import type { ConnectionActions } from './provider-card.js'
 import type { CredentialActions } from './card.js'
+import { CreditsBadge } from './credits-badge.js'
 import { API_KEY_REF } from '../credential.js'
 import { REMOTE } from '../remote.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
@@ -18,6 +19,26 @@ export async function apply(ctx: Context): Promise<void> {
   const dispose = await ctx.remote.$mount(REMOTE)
   ctx.effect(() => dispose)
   ctx.inject(['remote.workbuddyProvider'], mountCard)
+  ctx.inject(['remote.workbuddyProvider'], mountCredits)
+}
+
+/** Register the session-header credit badge; the host read pairs ledger spend with the account balance. */
+function mountCredits(ctx: Context): void {
+  const credits = async (sessionId: string) => {
+    const result = await ctx.remote.workbuddyProvider.credits(sessionId)
+    if (!result.ok) throw new Error('WorkBuddy credits unavailable')
+    return result.value
+  }
+  // The conversation header slot is declared by another client plugin, whose
+  // types are not a dependency here; the runtime slot service is structural.
+  const slots = ctx.slots as unknown as {
+    inject(name: string, callback: () => () => void): void
+    register(options: Record<string, unknown>, component: unknown): () => void
+  }
+  slots.inject('conversation.session.header.utilities', () => slots.register({
+    name: 'conversation.session.header.utilities', id: 'workbuddy-credits', order: -20,
+    inject: () => ({ credits }),
+  }, CreditsBadge))
 }
 
 function mountCard(ctx: Context): void {

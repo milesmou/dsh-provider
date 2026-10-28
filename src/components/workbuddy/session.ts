@@ -6,6 +6,8 @@ import { LlmError } from '@deepseek-ai/dsh-llm'
 import { credentialKey } from '@deepseek-ai/dsh-credentials'
 import type { CredentialProvider, GrantRecord } from '@deepseek-ai/dsh-credentials'
 import { SETTINGS_NAMESPACE } from './identity.js'
+import { BILLING_PATH, parseBillingSummary } from './credits.js'
+import type { AccountCredits } from './credits.js'
 
 export type WorkBuddyRegion = 'cn' | 'intl'
 export const SITES = {
@@ -191,6 +193,21 @@ export class WorkBuddySession {
     }
     login ??= await this.desktop()
     return { apiKey: login.access, headers: this.headers(login) }
+  }
+
+  /**
+   * Read the account's credit balance from the billing meter. Uses the same
+   * sign-in headers as model calls; any failure resolves to undefined so a
+   * balance read never blocks the session or surfaces credentials.
+   */
+  async accountCredits(signal?: AbortSignal): Promise<AccountCredits | undefined> {
+    try {
+      const { headers } = await this.authenticate(signal)
+      const data = await this.call(BILLING_PATH, 'POST', headers, {})
+      return parseBillingSummary(data)
+    } catch {
+      return undefined
+    }
   }
 
   async beginLogin(): Promise<{ url: string }> {

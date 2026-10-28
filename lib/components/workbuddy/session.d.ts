@@ -1,4 +1,5 @@
 import type { CredentialProvider } from '@deepseek-ai/dsh-credentials';
+import type { AccountCredits } from './credits.js';
 export type WorkBuddyRegion = 'cn' | 'intl';
 export declare const SITES: {
     readonly cn: {
@@ -59,6 +60,12 @@ export declare class WorkBuddySession {
         headers: Record<string, string>;
     }>;
     private authentication;
+    /**
+     * Read the account's credit balance from the billing meter. Uses the same
+     * sign-in headers as model calls; any failure resolves to undefined so a
+     * balance read never blocks the session or surfaces credentials.
+     */
+    accountCredits(signal?: AbortSignal): Promise<AccountCredits | undefined>;
     beginLogin(): Promise<{
         url: string;
     }>;

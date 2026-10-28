@@ -17,6 +17,11 @@ export interface Connection {
      * the framework's text-only placeholder.
      */
     resolveImage?: (ref: ImageBlock['attachment'], signal?: AbortSignal) => Promise<string>;
+    /**
+     * Report one request's exact credit charge (from the completion's `usage`)
+     * to the session ledger. Absent when the deployment does not surface credits.
+     */
+    recordCredit?: (sessionId: string | undefined, credit: number) => void;
     fetch?: typeof fetch;
     catalog?: ModelCatalog;
 }

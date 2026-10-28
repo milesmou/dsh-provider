@@ -25,6 +25,11 @@ export interface Connection {
    * the framework's text-only placeholder.
    */
   resolveImage?: (ref: ImageBlock['attachment'], signal?: AbortSignal) => Promise<string>
+  /**
+   * Report one request's exact credit charge (from the completion's `usage`)
+   * to the session ledger. Absent when the deployment does not surface credits.
+   */
+  recordCredit?: (sessionId: string | undefined, credit: number) => void
   fetch?: typeof fetch
   catalog?: ModelCatalog
 }
@@ -242,12 +247,17 @@ export class CodeBuddyAdapter extends LlmAdapter {
     let current: BlockState | undefined
     let finish: string | null = null
     let usage: TokenUsage | undefined
+    let credit: number | undefined
     try {
       const response = await send()
       stream = response
       for await (const chunk of response) {
         requestSignal.throwIfAborted()
-        if (chunk.usage) usage = usageOf(chunk.usage as unknown as Record<string, unknown>)
+        if (chunk.usage) {
+          const raw = chunk.usage as unknown as Record<string, unknown>
+          usage = usageOf(raw)
+          if (typeof raw.credit === 'number' && Number.isFinite(raw.credit)) credit = raw.credit
+        }
         const choice = chunk.choices.find(item => item.index === 0)
         if (!choice) continue
         if (choice.finish_reason) finish = choice.finish_reason
@@ -299,6 +309,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
         yield { type: 'block-end', index: state.index, block }
       }
       if (usage) yield { type: 'usage', usage }
+      if (credit !== undefined) this.connection.recordCredit?.(options.sessionId ? String(options.sessionId) : undefined, credit)
       if (finish === 'content_filter') throw new LlmError('CodeBuddy: provider filtered this response.', 'CONTENT_FILTER')
       yield { type: 'finish', reason: { kind: finish === 'length' ? 'max-tokens' : tools.size || finish === 'tool_calls' ? 'tool-calls' : 'stop' } }
     } catch (error) {

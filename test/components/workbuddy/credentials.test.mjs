@@ -107,8 +107,11 @@ async function clientFixture({ configured = false, writable = true, writeRefused
       },
     },
     slots: {
-      inject: (slot, register) => { assert.equal(slot, 'settings.models.footer'); register() },
-      register: (options, card) => { registration = options; component = card; return () => {} },
+      inject: (slot, register) => { register() },
+      register: (options, card) => {
+        if (options.name === 'settings.models.footer') { registration = options; component = card }
+        return () => {}
+      },
     },
   }
   await client.apply(ctx)
