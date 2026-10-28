@@ -29,7 +29,3 @@ github:milesmou/dsh-provider#main
 - **上下文窗口**：所有模型统一使用 500K 上下文（若模型自身上限更小，则以模型上限为准），作用于 DSH 的上下文压缩预算。
 
 在模型选择器中选择相应模型。模型列表在启动、切换接入方式或完成登录时获取，不定时刷新。可用模型和用量以账号权限为准。
-
-**3. 可选配置**
-
-WorkBuddy 的配置位于 `config.workbuddy`（`$DSH_HOME/profiles/desktop/cordis.patch.yml`，其他 profile 替换目录名）。模型列表始终由官方接口自动获取，**无需手动配置**。API Key 模式支持 `environment: overseas` 或自定义 `baseURL`；WorkBuddy 登录始终使用所选版本的官方地址。更多配置见 [配置示例](examples/cordis.patch.yml)。
