@@ -28,6 +28,47 @@ test('catalog selects CLI chat models, maps capacity, and rejects refused or emp
   }
 })
 
+test('catalog parses thinking levels, defaults, and image capability', () => {
+  const parsed = parseCatalog({ code: 0, data: { models: [
+    { id: 'deepseek', name: 'DeepSeek', supportsReasoning: true, supportsImages: true,
+      reasoning: { canDisableThinking: true, defaultEffort: 'high', supportedEfforts: ['low', 'high', 'max'] } },
+    { id: 'legacy', supportsReasoning: true, reasoning: { effort: 'medium', summary: 'auto' } },
+    { id: 'plain', supportsReasoning: false },
+    { id: 'textonly', supportsImages: false },
+  ] } })
+  const byId = Object.fromEntries(parsed.map(model => [model.id, model]))
+  // none (disable) first, then the catalog ladder; default is the advertised one.
+  assert.deepEqual(byId.deepseek.reasoningEfforts, ['none', 'low', 'high', 'max'])
+  assert.equal(byId.deepseek.defaultReasoningEffort, 'high')
+  assert.equal(byId.deepseek.canDisableThinking, true)
+  assert.equal(byId.deepseek.supportsImages, true)
+  // A single legacy effort is a one-level ladder without a disable level.
+  assert.deepEqual(byId.legacy.reasoningEfforts, ['medium'])
+  assert.equal(byId.legacy.defaultReasoningEffort, 'medium')
+  assert.equal(byId.legacy.canDisableThinking, undefined)
+  // No reasoning declared → no thinking control.
+  assert.equal(byId.plain.reasoningEfforts, undefined)
+  assert.equal(byId.textonly.supportsImages, false)
+})
+
+test('adapter advertises parsed thinking levels and image modality per model', async t => {
+  const connection = { baseURL: 'https://gateway.example/v2', resolveApiKey: async () => 'ck_fake',
+    fetch: async () => Response.json({ data: [
+      { id: 'reasoner', supportsImages: true, reasoning: { canDisableThinking: true, defaultEffort: 'high', supportedEfforts: ['low', 'high'] } },
+      { id: 'textonly', supportsImages: false },
+    ] }) }
+  const catalog = new ModelCatalog([], connection)
+  t.after(() => catalog.dispose())
+  await catalog.refresh()
+  const adapter = new CodeBuddyAdapter(Config({}), { ...connection, catalog })
+  const models = Object.fromEntries((await adapter.listModels('workbuddy')).map(model => [model.id, model]))
+  assert.deepEqual(models.reasoner.inputModalities, ['text', 'image'])
+  assert.deepEqual(models.textonly.inputModalities, ['text'])
+  const resolved = await adapter.resolveModel('workbuddy', 'reasoner')
+  assert.deepEqual(resolved.reasoning.efforts.map(effort => effort.id), ['none', 'low', 'high'])
+  assert.equal(resolved.reasoning.defaultEffort, 'high')
+})
+
 test('startup refresh deduplicates calls; elapsed time and selector reads never refresh; manual overrides win', async t => {
   t.mock.timers.enable({ apis: ['Date'], now: 1000 })
   let calls = 0, changed = 0, refuse = false

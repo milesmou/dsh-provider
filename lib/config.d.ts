@@ -17,13 +17,19 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
             name?: string | null | undefined;
             contextWindow?: number | null | undefined;
             maxTokens?: number | null | undefined;
+            supportsImages?: boolean | null | undefined;
             reasoningEfforts?: string[] | null | undefined;
+            defaultReasoningEffort?: string | null | undefined;
+            canDisableThinking?: boolean | null | undefined;
         } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
             id: z<string, string, "defined">;
             name: z<string, string, "plain">;
             contextWindow: z<number, number, "plain">;
             maxTokens: z<number, number, "plain">;
+            supportsImages: z<boolean, boolean, "plain">;
             reasoningEfforts: z<string[], string[], "plain">;
+            defaultReasoningEffort: z<string, string, "plain">;
+            canDisableThinking: z<boolean, boolean, "plain">;
         }>>[], "defined">;
     }>>, Schemastery.ObjectT<NoInfer<{
         mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
@@ -38,13 +44,19 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
             name?: string | null | undefined;
             contextWindow?: number | null | undefined;
             maxTokens?: number | null | undefined;
+            supportsImages?: boolean | null | undefined;
             reasoningEfforts?: string[] | null | undefined;
+            defaultReasoningEffort?: string | null | undefined;
+            canDisableThinking?: boolean | null | undefined;
         } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
             id: z<string, string, "defined">;
             name: z<string, string, "plain">;
             contextWindow: z<number, number, "plain">;
             maxTokens: z<number, number, "plain">;
+            supportsImages: z<boolean, boolean, "plain">;
             reasoningEfforts: z<string[], string[], "plain">;
+            defaultReasoningEffort: z<string, string, "plain">;
+            canDisableThinking: z<boolean, boolean, "plain">;
         }>>[], "defined">;
     }>>, "plain">;
 }>>, Schemastery.ObjectT<NoInfer<{
@@ -61,13 +73,19 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
             name?: string | null | undefined;
             contextWindow?: number | null | undefined;
             maxTokens?: number | null | undefined;
+            supportsImages?: boolean | null | undefined;
             reasoningEfforts?: string[] | null | undefined;
+            defaultReasoningEffort?: string | null | undefined;
+            canDisableThinking?: boolean | null | undefined;
         } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
             id: z<string, string, "defined">;
             name: z<string, string, "plain">;
             contextWindow: z<number, number, "plain">;
             maxTokens: z<number, number, "plain">;
+            supportsImages: z<boolean, boolean, "plain">;
             reasoningEfforts: z<string[], string[], "plain">;
+            defaultReasoningEffort: z<string, string, "plain">;
+            canDisableThinking: z<boolean, boolean, "plain">;
         }>>[], "defined">;
     }>>, Schemastery.ObjectT<NoInfer<{
         mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
@@ -82,13 +100,19 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
             name?: string | null | undefined;
             contextWindow?: number | null | undefined;
             maxTokens?: number | null | undefined;
+            supportsImages?: boolean | null | undefined;
             reasoningEfforts?: string[] | null | undefined;
+            defaultReasoningEffort?: string | null | undefined;
+            canDisableThinking?: boolean | null | undefined;
         } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
             id: z<string, string, "defined">;
             name: z<string, string, "plain">;
             contextWindow: z<number, number, "plain">;
             maxTokens: z<number, number, "plain">;
+            supportsImages: z<boolean, boolean, "plain">;
             reasoningEfforts: z<string[], string[], "plain">;
+            defaultReasoningEffort: z<string, string, "plain">;
+            canDisableThinking: z<boolean, boolean, "plain">;
         }>>[], "defined">;
     }>>, "plain">;
 }>>, "plain">;

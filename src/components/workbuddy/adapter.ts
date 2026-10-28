@@ -29,8 +29,13 @@ export interface Connection {
   catalog?: ModelCatalog
 }
 
-/** Declared input modalities: WorkBuddy/CodeBuddy chat models take text and images. */
-const INPUT_MODALITIES: readonly ModelModality[] = ['text', 'image']
+/** Declared input modalities when the catalog is silent: WorkBuddy chat models take text and images. */
+const DEFAULT_INPUT_MODALITIES: readonly ModelModality[] = ['text', 'image']
+
+/** Modalities one model advertises: the catalog's image capability when disclosed, else the default. */
+function inputModalitiesOf(model: ModelConfig): readonly ModelModality[] {
+  return model.supportsImages === false ? ['text'] : DEFAULT_INPUT_MODALITIES
+}
 
 interface BlockState {
   index: number
@@ -108,7 +113,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
 
   override async listModels(provider: string) {
     await this.connection.catalog?.ready()
-    return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: INPUT_MODALITIES }))
+    return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: inputModalitiesOf(model) }))
   }
 
   private modelConfig(id: string): ModelConfig {
@@ -146,11 +151,12 @@ export class CodeBuddyAdapter extends LlmAdapter {
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const config = this.modelConfig(model)
     return {
-      provider, id: model, name: config.name || model, inputModalities: INPUT_MODALITIES,
+      provider, id: model, name: config.name || model, inputModalities: inputModalitiesOf(config),
       ...(config.contextWindow ? { context: { contextWindow: config.contextWindow } } : {}),
       ...(config.maxTokens ? { defaultMaxTokens: config.maxTokens } : {}),
       ...(config.reasoningEfforts?.length ? { reasoning: {
         efforts: config.reasoningEfforts.map(id => ({ id: ReasoningEffortId(id), name: id })),
+        ...(config.defaultReasoningEffort ? { defaultEffort: ReasoningEffortId(config.defaultReasoningEffort) } : {}),
       } } : {}),
     }
   }

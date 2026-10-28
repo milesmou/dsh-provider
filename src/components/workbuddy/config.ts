@@ -10,7 +10,14 @@ export interface ModelConfig {
   name?: string
   contextWindow?: number
   maxTokens?: number
+  /** Accepted input modalities, when the catalog discloses them; absent means text-only default. */
+  supportsImages?: boolean
+  /** Selectable thinking levels (lowest to highest), from the catalog's reasoning metadata. */
   reasoningEfforts?: string[]
+  /** Adapter-configured default thinking level materialized when the caller omits one. */
+  defaultReasoningEffort?: string
+  /** Whether reasoning can be disabled entirely (adds the `none` level). */
+  canDisableThinking?: boolean
 }
 
 export interface Options {
@@ -35,7 +42,10 @@ export const Config = z.object({
     name: z.string(),
     contextWindow: z.number().step(1).min(1),
     maxTokens: z.number().step(1).min(1),
+    supportsImages: z.boolean(),
     reasoningEfforts: z.array(z.string()),
+    defaultReasoningEffort: z.string(),
+    canDisableThinking: z.boolean(),
   })).default([{ id: 'auto', name: 'CodeBuddy Auto' }]),
 })
 
@@ -62,7 +72,8 @@ export function resolveBaseURL(config: Options, read: ReadEnvironment): string {
 export function validateModels(models: ModelConfig[]): void {
   if (!models.length) throw new Error('CodeBuddy: configure at least one model ID.')
   const ids = new Set<string>()
-  const supportedEfforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh'])
+  // WorkBuddy/CodeBuddy levels (none off, low..max); OpenAI spellings are also accepted.
+  const supportedEfforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
   for (const model of models) {
     if (!model.id.trim() || model.id !== model.id.trim() || ids.has(model.id)) {
       throw new Error('CodeBuddy: model IDs must be unique, nonempty and have no surrounding whitespace.')
@@ -73,6 +84,10 @@ export function validateModels(models: ModelConfig[]): void {
     if (new Set(model.reasoningEfforts).size !== (model.reasoningEfforts?.length ?? 0)
       || model.reasoningEfforts?.some(effort => !supportedEfforts.has(effort))) {
       throw new Error(`CodeBuddy: invalid reasoningEfforts for ${model.id}.`)
+    }
+    if (model.defaultReasoningEffort !== undefined
+      && (!model.reasoningEfforts?.includes(model.defaultReasoningEffort) || !supportedEfforts.has(model.defaultReasoningEffort))) {
+      throw new Error(`CodeBuddy: defaultReasoningEffort must be one of reasoningEfforts for ${model.id}.`)
     }
     ids.add(model.id)
   }

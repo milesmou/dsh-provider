@@ -1,5 +1,4 @@
 import type { ModelConfig } from './config.js'
-
 interface CatalogConnection {
   baseURL: string
   resolveApiKey?(): Promise<string>
@@ -11,6 +10,30 @@ interface CatalogConnection {
 type ObjectValue = Record<string, unknown>
 const object = (value: unknown): ObjectValue => value && typeof value === 'object' && !Array.isArray(value) ? value as ObjectValue : {}
 const positive = (value: unknown): number | undefined => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
+const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim()) : []
+
+/**
+ * Thinking levels one catalog entry advertises. WorkBuddy exposes either a
+ * `supportedEfforts` ladder (low→max) or a single legacy `effort`, plus an
+ * optional `canDisableThinking` that adds the `none` level. Absent means the
+ * model declares no thinking control, so the caller offers none.
+ */
+function reasoningOf(raw: ObjectValue): Pick<ModelConfig, 'reasoningEfforts' | 'defaultReasoningEffort' | 'canDisableThinking'> {
+  if (raw.supportsReasoning === false) return {}
+  const reasoning = object(raw.reasoning)
+  const ladder = strings(reasoning.supportedEfforts)
+  const single = typeof reasoning.effort === 'string' && reasoning.effort.trim() ? reasoning.effort.trim() : undefined
+  const efforts = ladder.length ? ladder : single ? [single] : []
+  if (!efforts.length) return {}
+  const canDisable = reasoning.canDisableThinking === true || raw.canDisableThinking === true
+  const levels = canDisable ? ['none', ...efforts] : efforts
+  const configuredDefault = typeof reasoning.defaultEffort === 'string' && reasoning.defaultEffort.trim()
+    ? reasoning.defaultEffort.trim() : single
+  const defaultEffort = configuredDefault && levels.includes(configuredDefault) ? configuredDefault
+    : levels.includes('high') ? 'high' : levels[levels.length - 1]
+  return { reasoningEfforts: levels, ...(defaultEffort ? { defaultReasoningEffort: defaultEffort } : {}),
+    ...(canDisable ? { canDisableThinking: true } : {}) }
+}
 
 /** The official CLI uses /v3/config; custom OpenAI gateways use /models. */
 export function catalogURL(baseURL: string): string {
@@ -41,6 +64,8 @@ export function parseCatalog(value: unknown): ModelConfig[] {
       ...(typeof raw.name === 'string' && raw.name.trim() ? { name: raw.name } : {}),
       ...(contextWindow ? { contextWindow } : {}),
       ...(maxTokens ? { maxTokens: contextWindow ? Math.min(contextWindow, maxTokens) : maxTokens } : {}),
+      ...(typeof raw.supportsImages === 'boolean' ? { supportsImages: raw.supportsImages } : {}),
+      ...reasoningOf(raw),
     })
   }
   if (!models.size) throw new Error('CodeBuddy catalog contains no chat models')

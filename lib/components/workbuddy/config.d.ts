@@ -11,7 +11,14 @@ export interface ModelConfig {
     name?: string;
     contextWindow?: number;
     maxTokens?: number;
+    /** Accepted input modalities, when the catalog discloses them; absent means text-only default. */
+    supportsImages?: boolean;
+    /** Selectable thinking levels (lowest to highest), from the catalog's reasoning metadata. */
     reasoningEfforts?: string[];
+    /** Adapter-configured default thinking level materialized when the caller omits one. */
+    defaultReasoningEffort?: string;
+    /** Whether reasoning can be disabled entirely (adds the `none` level). */
+    canDisableThinking?: boolean;
 }
 export interface Options {
     environment: 'internal' | 'overseas' | 'ioa';
@@ -34,13 +41,19 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         name?: string | null | undefined;
         contextWindow?: number | null | undefined;
         maxTokens?: number | null | undefined;
+        supportsImages?: boolean | null | undefined;
         reasoningEfforts?: string[] | null | undefined;
+        defaultReasoningEffort?: string | null | undefined;
+        canDisableThinking?: boolean | null | undefined;
     } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
         id: z<string, string, "defined">;
         name: z<string, string, "plain">;
         contextWindow: z<number, number, "plain">;
         maxTokens: z<number, number, "plain">;
+        supportsImages: z<boolean, boolean, "plain">;
         reasoningEfforts: z<string[], string[], "plain">;
+        defaultReasoningEffort: z<string, string, "plain">;
+        canDisableThinking: z<boolean, boolean, "plain">;
     }>>[], "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
@@ -55,13 +68,19 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         name?: string | null | undefined;
         contextWindow?: number | null | undefined;
         maxTokens?: number | null | undefined;
+        supportsImages?: boolean | null | undefined;
         reasoningEfforts?: string[] | null | undefined;
+        defaultReasoningEffort?: string | null | undefined;
+        canDisableThinking?: boolean | null | undefined;
     } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
         id: z<string, string, "defined">;
         name: z<string, string, "plain">;
         contextWindow: z<number, number, "plain">;
         maxTokens: z<number, number, "plain">;
+        supportsImages: z<boolean, boolean, "plain">;
         reasoningEfforts: z<string[], string[], "plain">;
+        defaultReasoningEffort: z<string, string, "plain">;
+        canDisableThinking: z<boolean, boolean, "plain">;
     }>>[], "defined">;
 }>>, "plain">;
 export type ReadEnvironment = (name: string) => string | undefined;
