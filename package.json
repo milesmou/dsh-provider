@@ -1,6 +1,6 @@
 {
   "name": "dsh-codebuddy-provider",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CodeBuddy API-key model provider for DeepSeek Harness, following Codeg environment configuration.",
   "repository": {
     "type": "git",
