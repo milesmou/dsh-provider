@@ -2,35 +2,21 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { Action } from './remote.js'
-import type { ControlAction, ControlReply, CreditsReply, TurnCreditReply } from './remote.js'
+import type { ControlAction, ControlReply, CreditsReply } from './remote.js'
 import type { WorkBuddySession } from './session.js'
-import { projectRemain, turnCreditIndex } from './credits.js'
-import type { CreditLedger, CreditSessionEvent, SessionBalance } from './credits.js'
-
-/** Structural slice of the host Session store this controller reads on demand. */
-interface SessionReadFace {
-  snapshotEvents(): readonly CreditSessionEvent[]
-}
-interface SessionStoreFace {
-  get(id: string): SessionReadFace | undefined
-}
+import { projectRemain } from './credits.js'
+import type { CreditLedger, SessionBalance } from './credits.js'
 
 export class WorkBuddyController extends TypertRemoteService {
   /** One fetch of the account balance per session; later reads project from it. */
   private readonly balances = new Map<string, SessionBalance>()
-  /**
-   * Turn-credit lookup per session snapshot. The Session log keeps one immutable
-   * snapshot array until it appends, so the same array identity is a safe cache
-   * key and each message read stays O(1) after the first one for that snapshot.
-   */
-  private readonly creditIndexes = new WeakMap<readonly CreditSessionEvent[], Map<string, number>>()
 
-  constructor(private readonly host: Context, private readonly options: {
+  constructor(ctx: Context, private readonly options: {
     session(): WorkBuddySession
     ledger: CreditLedger
     enabled(): boolean
   }) {
-    super(host, 'workbuddyProvider')
+    super(ctx, 'workbuddyProvider')
   }
 
   @Remote
@@ -79,32 +65,6 @@ export class WorkBuddyController extends TypertRemoteService {
       accountRemain: projectRemain(balance, sessionUsed),
       accountTotal: balance.total, unit: balance.unit,
       ...(balance.plan ? { plan: balance.plan } : {}),
-    }
-  }
-
-  /**
-   * Exact credit charge of the Turn that owns one finished assistant message.
-   * Read from the durable session log: every assistant settlement keeps the
-   * provider's `usage.credit`, so the figure survives reloads and needs no
-   * extra bookkeeping. Unknown messages, other providers, and turns with no
-   * disclosed charge return an empty reply; the UI then renders nothing.
-   */
-  @Remote
-  async turnCredit(sessionId: string, messageId: string): Promise<TurnCreditReply> {
-    const store = this.host.get('sessions') as unknown as SessionStoreFace | undefined
-    const session = store?.get?.(sessionId)
-    if (!session?.snapshotEvents) return {}
-    try {
-      const events = session.snapshotEvents()
-      let index = this.creditIndexes.get(events)
-      if (!index) {
-        index = turnCreditIndex(events)
-        this.creditIndexes.set(events, index)
-      }
-      const credits = index.get(messageId)
-      return credits === undefined ? {} : { credits }
-    } catch {
-      return {}
     }
   }
 }

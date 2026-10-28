@@ -48,40 +48,6 @@ export interface SessionBalance {
  * current spend: anything spent after the fetch is subtracted, never below 0.
  */
 export declare function projectRemain(balance: SessionBalance, sessionUsed: number): number;
-/** The durable slice of a session event this module reads for per-turn credits. */
-export interface CreditSessionEvent {
-    readonly type: string;
-    readonly data?: {
-        readonly turn?: number;
-        readonly message?: {
-            readonly id?: string;
-            readonly source?: {
-                readonly provider?: string;
-            };
-        };
-        readonly usage?: {
-            readonly credit?: unknown;
-        };
-    };
-}
-/**
- * Index every WorkBuddy assistant message id to its Turn's exact credit total.
- *
- * Every assistant settlement carries the provider's `usage.credit` (the adapter
- * preserves that field beside the token buckets). A Turn may run several model
- * steps, so its total is the sum over every assistant message in that Turn.
- * One pass builds the whole map, letting a caller answer every message of a
- * session without rescanning the log per message. Messages from another
- * provider, or Turns where no step disclosed a charge, are absent.
- */
-export declare function turnCreditIndex(events: readonly CreditSessionEvent[]): Map<string, number>;
-/**
- * Sum the exact credit charges of the Turn that owns one assistant message.
- *
- * Returns undefined when the message is unknown, belongs to another provider,
- * or no step disclosed a charge.
- */
-export declare function turnCreditOf(events: readonly CreditSessionEvent[], messageId: string): number | undefined;
 /**
  * Per-session credit ledger. Holds one running total per DSH session id. When a
  * backing file is supplied the totals are loaded on construction and written

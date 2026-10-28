@@ -9,7 +9,6 @@ import type { CredentialActions } from './card.js'
 import { CreditsBadge } from './credits-badge.js'
 import type { SelectionSource } from './credits-badge.js'
 import { ModelNameLabel } from './model-label.js'
-import { TurnCredit } from './turn-credit.js'
 import { API_KEY_REF } from '../credential.js'
 import { REMOTE } from '../remote.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
@@ -24,7 +23,6 @@ export async function apply(ctx: Context): Promise<void> {
   ctx.inject(['remote.workbuddyProvider'], mountCard)
   ctx.inject(['remote.workbuddyProvider', 'modelDirectories'], mountCredits)
   mountModelLabel(ctx)
-  mountTurnCredits(ctx)
 }
 
 /** Add a small mark before WorkBuddy model names in the composer's model selector. */
@@ -36,23 +34,6 @@ function mountModelLabel(ctx: Context): void {
   slots.inject('conversation.input.model.label', () => slots.register({
     name: 'conversation.input.model.label',
   }, ModelNameLabel))
-}
-
-/** Append each completed Turn's credit spend to the assistant action row. */
-function mountTurnCredits(ctx: Context): void {
-  const turnCredit = async (sessionId: string, messageId: string) => {
-    const result = await ctx.remote.workbuddyProvider.turnCredit(sessionId, messageId)
-    if (!result.ok) throw new Error('WorkBuddy turn credit unavailable')
-    return result.value
-  }
-  const slots = ctx.slots as unknown as {
-    inject(name: string, callback: () => () => void): void
-    register(options: Record<string, unknown>, component: unknown): () => void
-  }
-  slots.inject('conversation.chat.assistant-actions', () => slots.register({
-    name: 'conversation.chat.assistant-actions', id: 'workbuddy-turn-credit', order: 100,
-    inject: () => ({ turnCredit }),
-  }, TurnCredit))
 }
 
 /** Structural slice of the session model-selection service this component reads. */

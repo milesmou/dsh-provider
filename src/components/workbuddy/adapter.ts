@@ -322,13 +322,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
         } else block = { type: state.type, text: state.text }
         yield { type: 'block-end', index: state.index, block }
       }
-      if (usage) {
-        // WorkBuddy's completion reports an exact credit charge beside the token
-        // buckets. Keep it on the same usage object the session records, so a
-        // Turn's credit stays readable after the request (and across restarts).
-        if (credit !== undefined) (usage as TokenUsage & { credit?: number }).credit = credit
-        yield { type: 'usage', usage }
-      }
+      if (usage) yield { type: 'usage', usage }
       if (credit !== undefined) this.connection.recordCredit?.(options.sessionId ? String(options.sessionId) : undefined, credit)
       if (finish === 'content_filter') throw new LlmError('CodeBuddy: provider filtered this response.', 'CONTENT_FILTER')
       yield { type: 'finish', reason: { kind: finish === 'length' ? 'max-tokens' : tools.size || finish === 'tool_calls' ? 'tool-calls' : 'stop' } }
