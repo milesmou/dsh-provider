@@ -8,6 +8,8 @@
     apiKeyEnv: CODEBUDDY_API_KEY
     timeoutMs: 180000
     includeUsage: true
+    autoUpdateModels: true
+    modelRefreshIntervalMs: 1800000
     models:
       - id: auto
         name: CodeBuddy Auto

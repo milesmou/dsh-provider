@@ -1,10 +1,12 @@
 import { LlmAdapter } from '@deepseek-ai/dsh-llm';
 import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm';
 import type { Options } from './config.js';
+import type { ModelCatalog } from './catalog.js';
 interface Connection {
     baseURL: string;
     resolveApiKey: () => Promise<string>;
     fetch?: typeof fetch;
+    catalog?: ModelCatalog;
 }
 export declare class CodeBuddyAdapter extends LlmAdapter {
     private readonly config;

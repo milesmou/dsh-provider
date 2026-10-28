@@ -68,6 +68,7 @@ export function CodeBuddyKeyCard({ actions }: CardProps) {
     </label>
     <p style={{ margin: 0, opacity: 0.7, fontSize: 12, lineHeight: 1.6 }}>
       密钥保存在 DSH 的凭据存储中。保存后，在对话模型选择器中选择 CodeBuddy API。
+      默认在启动、保存密钥时自动获取模型列表，之后每 30 分钟更新。
     </p>
     {status?.writable === false ? <p role="note" style={{ margin: 0, fontSize: 12 }}>
       当前密钥来源不可写；若由启动环境变量提供，请先移除该变量并重启 DSH。

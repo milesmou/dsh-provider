@@ -1,7 +1,7 @@
 {
   "name": "dsh-codebuddy-provider",
-  "version": "0.1.2",
-  "description": "CodeBuddy API-key model provider for DeepSeek Harness, following Codeg environment configuration.",
+  "version": "0.1.3",
+  "description": "CodeBuddy API-key model provider for DeepSeek Harness.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/milesmou/dsh-codebuddy-provider.git"
@@ -21,14 +21,17 @@
     },
     "./client": {
       "default": "./lib/client.js"
-    }
+    },
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
   },
   "files": [
     "lib",
     "cordis.patch.yml",
     "examples",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "locale/*.json"
   ],
   "keywords": [
     "dsh-plugin",

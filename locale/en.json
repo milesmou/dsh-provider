@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "dsh-codebuddy-provider",
+    "description": "Use CodeBuddy models in DSH with an API key and automatic model list updates."
+  }
+}

@@ -43,7 +43,7 @@ test('saved credential changes reach the next model request without a plugin res
   // fall back to a different environment snapshot behind its back.
   ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { CUSTOM_CODEBUDDY_KEY: 'ck_stale_ambient' } }]))
   const runtime = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(host, { baseURL: `http://127.0.0.1:${server.address().port}/v2`, apiKeyEnv: 'CUSTOM_CODEBUDDY_KEY' })
+  const fiber = ctx.plugin(host, { baseURL: `http://127.0.0.1:${server.address().port}/v2`, apiKeyEnv: 'CUSTOM_CODEBUDDY_KEY', autoUpdateModels: false })
   await runtime.await()
   await fiber.await()
   const uid = fiber.uid

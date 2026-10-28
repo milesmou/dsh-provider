@@ -13,6 +13,8 @@ export interface Options {
     apiKeyEnv: string;
     timeoutMs: number;
     includeUsage: boolean;
+    autoUpdateModels: boolean;
+    modelRefreshIntervalMs: number;
     models: ModelConfig[];
 }
 export type PluginConfig = Omit<Options, 'apiKeyEnv'> & {
@@ -24,6 +26,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     apiKeyEnv: z<string, string, "volatile-defined">;
     timeoutMs: z<number, number, "defined">;
     includeUsage: z<boolean, boolean, "defined">;
+    autoUpdateModels: z<boolean, boolean, "defined">;
+    modelRefreshIntervalMs: z<number, number, "defined">;
     models: z<({
         id?: string | null | undefined;
         name?: string | null | undefined;
@@ -43,6 +47,8 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     apiKeyEnv: z<string, string, "volatile-defined">;
     timeoutMs: z<number, number, "defined">;
     includeUsage: z<boolean, boolean, "defined">;
+    autoUpdateModels: z<boolean, boolean, "defined">;
+    modelRefreshIntervalMs: z<number, number, "defined">;
     models: z<({
         id?: string | null | undefined;
         name?: string | null | undefined;

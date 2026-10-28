@@ -7,11 +7,13 @@ import {
 import type { ContentBlock, GenerateOptions, LlmResolvedModelInfo, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { ModelConfig, Options } from './config.js'
 import { toMessages } from './messages.js'
+import type { ModelCatalog } from './catalog.js'
 
 interface Connection {
   baseURL: string
   resolveApiKey: () => Promise<string>
   fetch?: typeof fetch
+  catalog?: ModelCatalog
 }
 
 interface BlockState {
@@ -62,11 +64,12 @@ export class CodeBuddyAdapter extends LlmAdapter {
   override providerInfo(provider: string) { return { id: provider, name: 'CodeBuddy API' } }
 
   override async listModels(provider: string) {
-    return this.config.models.map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: ['text' as const] }))
+    await this.connection.catalog?.refresh()
+    return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: ['text' as const] }))
   }
 
   private modelConfig(id: string): ModelConfig {
-    return this.config.models.find(model => model.id === id) ?? { id }
+    return (this.connection.catalog?.models() ?? this.config.models).find(model => model.id === id) ?? { id }
   }
 
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
