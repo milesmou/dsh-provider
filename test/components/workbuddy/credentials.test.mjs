@@ -93,7 +93,7 @@ async function clientFixture({ configured = false, writable = true, writeRefused
         describe: async () => ({ ok: true, value: { writable: true, namespaces: [{ns: 'dsh-provider', value: { workbuddy: selection }, revision: 1}] } }),
         update: async (ns, value, revision) => {
           assert.equal(ns, 'dsh-provider'); assert.equal(revision, 1)
-          selection = value.workbuddy
+          selection = { ...selection, ...value.workbuddy }
           return { ok: true }
         },
         mutate: () => { throw new Error('Secrets must not be written into settings') },
@@ -153,6 +153,15 @@ test('switching to WorkBuddy stores only mode and region and reads its dedicated
   assert.equal(state.region, 'intl')
   assert.equal(state.login.configured, false)
   assert.equal(fixture.calls.length, 0)
+})
+
+test('context window choice persists through the settings namespace', async () => {
+  const fixture = await clientFixture()
+  assert.equal((await fixture.connection.status()).context, '500k')
+  await fixture.connection.context('300k')
+  assert.equal((await fixture.connection.status()).context, '300k')
+  await fixture.connection.context('max')
+  assert.equal((await fixture.connection.status()).context, 'max')
 })
 
 test('settings card rejects invalid keys and does not reflect server error secrets', async () => {

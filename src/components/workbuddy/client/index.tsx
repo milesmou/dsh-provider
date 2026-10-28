@@ -83,16 +83,22 @@ function mountCard(ctx: Context): void {
     },
     status: async () => {
       const { response, value } = await section()
-      const settings = (value.value as { workbuddy?: { mode?: string; workbuddyRegion?: string } }).workbuddy ?? {}
+      const settings = (value.value as { workbuddy?: { mode?: string; workbuddyRegion?: string; contextWindow?: string } }).workbuddy ?? {}
       const mode = settings.mode === 'workbuddy' ? 'workbuddy' : 'api'
       const region = settings.workbuddyRegion === 'intl' ? 'intl' : 'cn'
+      const context = settings.contextWindow === '300k' ? '300k' : settings.contextWindow === 'max' ? 'max' : '500k'
       const login = mode === 'workbuddy' ? await connection.control('status') : undefined
-      return { mode, region, writable: response.writable,
+      return { mode, region, context, writable: response.writable,
         ...(login ? { login: { configured: !!login.configured, source: login.source, issue: login.issue } } : {}) }
     },
     select: async (mode, region) => {
       const { value } = await section()
       const result = await ctx.remote.settings.update(value.ns, { workbuddy: { mode, workbuddyRegion: region } }, value.revision)
+      if (!result.ok) throw new Error('Settings write refused')
+    },
+    context: async mode => {
+      const { value } = await section()
+      const result = await ctx.remote.settings.update(value.ns, { workbuddy: { contextWindow: mode } }, value.revision)
       if (!result.ok) throw new Error('Settings write refused')
     },
   }

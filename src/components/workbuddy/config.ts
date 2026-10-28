@@ -3,14 +3,29 @@ import type { Volatile } from '@deepseek-ai/cordis'
 import type { WorkBuddyRegion } from './session.js'
 
 export type Mode = 'api' | 'workbuddy'
-export type PluginConfig = Options & { mode: Volatile<Mode>; workbuddyRegion: Volatile<WorkBuddyRegion> }
+/** Which context window the adapter advertises to DSH for every model. */
+export type ContextWindowMode = '300k' | '500k' | 'max'
+export type PluginConfig = Options & {
+  mode: Volatile<Mode>
+  workbuddyRegion: Volatile<WorkBuddyRegion>
+  contextWindow: Volatile<ContextWindowMode>
+}
+
+/** Fallback working window when the catalog does not disclose a model's capacity. */
+export const DEFAULT_CONTEXT_WINDOW = 500 * 1024
 
 /**
- * Working context window every WorkBuddy model runs with, in tokens (500K).
- * A model whose own declared maximum is smaller keeps that smaller maximum, so
- * a request can never exceed what the model actually accepts.
+ * Resolve the effective context window for a model.
+ * `max` uses the model's disclosed capacity (500K when unknown); the fixed
+ * choices are absolute caps. In every case the model's own maximum wins when it
+ * is smaller, so a request can never exceed what the model actually accepts.
  */
-export const CONTEXT_WINDOW = 500 * 1024
+export function resolveContextWindow(mode: ContextWindowMode, modelMax?: number): number {
+  const base = mode === '300k' ? 300 * 1024
+    : mode === '500k' ? 500 * 1024
+    : modelMax && modelMax > 0 ? modelMax : DEFAULT_CONTEXT_WINDOW
+  return modelMax && modelMax > 0 ? Math.min(base, modelMax) : base
+}
 
 /**
  * One model entry. Always produced by the catalog now; the fields beyond
@@ -42,6 +57,7 @@ export interface Options {
 export const Config = z.object({
   mode: z.union(['api', 'workbuddy']).default('api').volatile(),
   workbuddyRegion: z.union(['cn', 'intl']).default('cn').volatile(),
+  contextWindow: z.union(['300k', '500k', 'max']).default('500k').volatile(),
   environment: z.union(['internal', 'overseas', 'ioa']).default('internal'),
   baseURL: z.string().default(''),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),

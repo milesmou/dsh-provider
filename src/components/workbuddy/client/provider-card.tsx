@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { CodeBuddyKeyCard } from './card.js'
 import type { CredentialActions } from './card.js'
-import type { Mode } from '../config.js'
+import type { ContextWindowMode, Mode } from '../config.js'
 import type { WorkBuddyRegion, WorkBuddyStatus } from '../session.js'
 import type { ControlAction, ControlReply } from '../remote.js'
 
-export interface ConnectionState { mode: Mode; region: WorkBuddyRegion; writable: boolean; login?: WorkBuddyStatus }
+export interface ConnectionState { mode: Mode; region: WorkBuddyRegion; context: ContextWindowMode; writable: boolean; login?: WorkBuddyStatus }
 export interface ConnectionActions {
   status(): Promise<ConnectionState>
   select(mode: Mode, region: WorkBuddyRegion): Promise<void>
   control(action: ControlAction): Promise<ControlReply>
+  /** Persist the context-window choice (300K / 500K / model max). */
+  context(mode: ContextWindowMode): Promise<void>
 }
 const control: CSSProperties = { font: 'inherit', color: 'inherit', background: 'transparent',
   border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', borderRadius: 6, padding: '8px 12px' }
@@ -90,6 +92,12 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
     }
     finally { setBusy(false) }
   }
+  async function chooseContext(next: ContextWindowMode) {
+    setBusy(true); setIssue('')
+    try { await connection.context(next); setState(await connection.status()) }
+    catch { setIssue('保存上下文窗口失败，请重试。') }
+    finally { setBusy(false) }
+  }
   const mode = state?.mode ?? 'api'
   return <section aria-label="WorkBuddy 组件设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
     <strong>WorkBuddy 组件</strong>
@@ -111,6 +119,13 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
       </div>
       {url ? <a href={url} target="_blank" rel="noopener noreferrer">登录页面未自动打开？点此手动打开，完成后将自动连接</a> : null}
     </section>}
+    <label style={label}>上下文窗口 <select style={selectControl} aria-label="上下文窗口" value={state?.context ?? '500k'} disabled={!state?.writable || busy}
+      onChange={event => { void chooseContext(event.target.value as ContextWindowMode) }}>
+      <option style={selectColors} value="300k">固定 300K</option>
+      <option style={selectColors} value="500k">固定 500K</option>
+      <option style={selectColors} value="max">模型最大值</option>
+    </select></label>
+    <p style={{ margin: 0, fontSize: 12, opacity: 0.75 }}>每轮可携带的历史上限（DSH 按此计算压缩预算）。固定值更省积分；「模型最大值」按各模型自身容量，未知时用 500K。</p>
     {issue ? <p role="alert" style={{ margin: 0, fontSize: 12 }}>{issue}</p> : null}
   </section>
 }

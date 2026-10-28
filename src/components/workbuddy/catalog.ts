@@ -1,5 +1,5 @@
-import { CONTEXT_WINDOW } from './config.js'
-import type { ModelConfig } from './config.js'
+import { resolveContextWindow } from './config.js'
+import type { ContextWindowMode, ModelConfig } from './config.js'
 interface CatalogConnection {
   baseURL: string
   resolveApiKey?(): Promise<string>
@@ -85,12 +85,14 @@ export class ModelCatalog {
     private readonly baseline: ModelConfig[],
     private readonly connection: CatalogConnection,
     private readonly changed: () => void = () => {},
+    /** Which context window the adapter should advertise (settings choice). */
+    private readonly contextPolicy: () => ContextWindowMode = () => '500k',
   ) {}
 
   /**
-   * Models as the adapter routes them. Every entry runs with a 500K working
-   * window, except a model whose catalog maximum is smaller — that smaller
-   * maximum wins so a request never exceeds the model's real capacity.
+   * Models as the adapter routes them. The settings choice sets a 300K/500K cap
+   * or asks for each model's own maximum; a smaller model capacity always wins
+   * so a request never exceeds the model's real capacity.
    */
   models(): ModelConfig[] {
     const models = new Map(this.remote.map(model => [model.id, model]))
@@ -98,9 +100,9 @@ export class ModelCatalog {
       const overrides = Object.fromEntries(Object.entries(model).filter(([, value]) => value !== undefined))
       models.set(model.id, { ...models.get(model.id), ...overrides } as ModelConfig)
     }
+    const policy = this.contextPolicy()
     for (const [id, model] of models) {
-      const ceiling = model.contextWindow && model.contextWindow > 0 ? model.contextWindow : CONTEXT_WINDOW
-      models.set(id, { ...model, contextWindow: Math.min(CONTEXT_WINDOW, ceiling) })
+      models.set(id, { ...model, contextWindow: resolveContextWindow(policy, model.contextWindow) })
     }
     // Keep the built-in baseline entry (Auto) ahead of the discovered models.
     return [...this.baseline.map(model => models.get(model.id)!), ...[...models.values()].filter(model => !this.baseline.some(item => item.id === model.id))]

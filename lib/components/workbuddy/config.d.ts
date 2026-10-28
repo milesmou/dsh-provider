@@ -2,16 +2,22 @@ import z from '@deepseek-ai/schemastery';
 import type { Volatile } from '@deepseek-ai/cordis';
 import type { WorkBuddyRegion } from './session.js';
 export type Mode = 'api' | 'workbuddy';
+/** Which context window the adapter advertises to DSH for every model. */
+export type ContextWindowMode = '300k' | '500k' | 'max';
 export type PluginConfig = Options & {
     mode: Volatile<Mode>;
     workbuddyRegion: Volatile<WorkBuddyRegion>;
+    contextWindow: Volatile<ContextWindowMode>;
 };
+/** Fallback working window when the catalog does not disclose a model's capacity. */
+export declare const DEFAULT_CONTEXT_WINDOW: number;
 /**
- * Working context window every WorkBuddy model runs with, in tokens (500K).
- * A model whose own declared maximum is smaller keeps that smaller maximum, so
- * a request can never exceed what the model actually accepts.
+ * Resolve the effective context window for a model.
+ * `max` uses the model's disclosed capacity (500K when unknown); the fixed
+ * choices are absolute caps. In every case the model's own maximum wins when it
+ * is smaller, so a request can never exceed what the model actually accepts.
  */
-export declare const CONTEXT_WINDOW: number;
+export declare function resolveContextWindow(mode: ContextWindowMode, modelMax?: number): number;
 /**
  * One model entry. Always produced by the catalog now; the fields beyond
  * identity are whatever the catalog disclosed (capacity, image support, and
@@ -40,6 +46,7 @@ export interface Options {
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
+    contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
     environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;
@@ -47,6 +54,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
 }>>, Schemastery.ObjectT<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
+    contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
     environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;

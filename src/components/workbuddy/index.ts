@@ -57,7 +57,7 @@ function imageResolver(ctx: Context): Connection['resolveImage'] {
 }
 
 export function apply(ctx: Context, config: PluginConfig): void {
-  const { mode, workbuddyRegion, ...options } = config
+  const { mode, workbuddyRegion, contextWindow, ...options } = config
   const environment = launchEnvironmentOf(ctx)
   const ref = credentialRef(API_KEY_REF)
   const sessions = new Map<WorkBuddyRegion, WorkBuddySession>()
@@ -105,7 +105,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
     }
     const models = baselineModels(mode.get(), workbuddyRegion.get())
     connection.fallback = models
-    catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'))
+    catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'), () => contextWindow.get())
     adapter = new CodeBuddyAdapter(structuredClone(options), { ...connection, catalog })
     void catalog.refresh()
   }
@@ -117,10 +117,9 @@ export function apply(ctx: Context, config: PluginConfig): void {
     if (updated === ref && mode.get() === 'api') catalog?.credentialsChanged()
   })
   ctx.on('settings/document-updated', ns => {
-    if (ns === SETTINGS_NAMESPACE && selection !== mode.get() + ':' + workbuddyRegion.get()) {
-      rebuild()
-      ctx.emit('llm/adapters-updated')
-    }
+    if (ns !== SETTINGS_NAMESPACE) return
+    if (selection !== mode.get() + ':' + workbuddyRegion.get()) rebuild()
+    ctx.emit('llm/adapters-updated')
   })
   ctx.effect(() => () => {
     catalog?.dispose()

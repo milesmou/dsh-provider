@@ -157,12 +157,25 @@ test('DSH startup, credential save, and disposal update the real model registry'
   assert.deepEqual(ctx.llm.listProviders(), [])
 })
 
-test('every model runs with a 500K window, capped by its own declared maximum', () => {
-  const catalog = new ModelCatalog([
+test('the settings choice sets the working window, capped by each model maximum', () => {
+  const connection = { baseURL: 'https://gateway.example/v2' }
+  const modelsWith = policy => Object.fromEntries(new ModelCatalog([
     { id: 'big', name: 'Big' },
-    { id: 'small', name: 'Small', contextWindow: 192 * 1024 },
-  ], { baseURL: 'https://gateway.example/v2' })
-  const models = Object.fromEntries(catalog.models().map(model => [model.id, model]))
-  assert.equal(models.big.contextWindow, 500 * 1024)
-  assert.equal(models.small.contextWindow, 192 * 1024)
+    { id: 'mid', name: 'Mid', contextWindow: 200 * 1024 },
+    { id: 'huge', name: 'Huge', contextWindow: 1024 * 1024 },
+  ], connection, () => {}, () => policy).models().map(model => [model.id, model]))
+
+  const fixed300 = modelsWith('300k')
+  assert.equal(fixed300.big.contextWindow, 300 * 1024)
+  assert.equal(fixed300.mid.contextWindow, 200 * 1024)
+  assert.equal(fixed300.huge.contextWindow, 300 * 1024)
+
+  const fixed500 = modelsWith('500k')
+  assert.equal(fixed500.big.contextWindow, 500 * 1024)
+  assert.equal(fixed500.huge.contextWindow, 500 * 1024)
+
+  const modelMax = modelsWith('max')
+  assert.equal(modelMax.big.contextWindow, 500 * 1024) // unknown capacity → 500K default
+  assert.equal(modelMax.mid.contextWindow, 200 * 1024)
+  assert.equal(modelMax.huge.contextWindow, 1024 * 1024)
 })

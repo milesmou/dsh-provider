@@ -7,6 +7,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     workbuddy: z<Schemastery.ObjectS<NoInfer<{
         mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
+        contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
         environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: z<string, string, "defined">;
         timeoutMs: z<number, number, "defined">;
@@ -14,6 +15,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     }>>, Schemastery.ObjectT<NoInfer<{
         mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
+        contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
         environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: z<string, string, "defined">;
         timeoutMs: z<number, number, "defined">;
@@ -23,6 +25,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     workbuddy: z<Schemastery.ObjectS<NoInfer<{
         mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
+        contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
         environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: z<string, string, "defined">;
         timeoutMs: z<number, number, "defined">;
@@ -30,6 +33,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     }>>, Schemastery.ObjectT<NoInfer<{
         mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
+        contextWindow: z<"300k" | "500k" | "max", "300k" | "500k" | "max", "volatile-defined">;
         environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: z<string, string, "defined">;
         timeoutMs: z<number, number, "defined">;
