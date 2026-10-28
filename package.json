@@ -4,11 +4,11 @@
   "description": "CodeBuddy API and WorkBuddy sign-in model provider for DeepSeek Harness.",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/milesmou/dsh-codebuddy-provider.git"
+    "url": "git+https://github.com/milesmou/dsh-provider.git"
   },
-  "homepage": "https://github.com/milesmou/dsh-codebuddy-provider#readme",
+  "homepage": "https://github.com/milesmou/dsh-provider#readme",
   "bugs": {
-    "url": "https://github.com/milesmou/dsh-codebuddy-provider/issues"
+    "url": "https://github.com/milesmou/dsh-provider/issues"
   },
   "type": "module",
   "license": "MIT",

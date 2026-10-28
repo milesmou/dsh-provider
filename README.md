@@ -15,7 +15,7 @@ WorkBuddy 接入参考 [magpie](https://github.com/yetone/magpie) 的登录态�
 在 **设置 → 插件** 添加：
 
 ```text
-github:milesmou/dsh-codebuddy-provider#main
+github:milesmou/dsh-provider#main
 ```
 
 仓库包含预编译文件，安装无需运行构建脚本。更新后重启 DSH。
