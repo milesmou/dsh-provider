@@ -1,15 +1,13 @@
 # Merge this entry into the selected profile's cordis.patch.yml.
-# Set CODEBUDDY_API_KEY in the shell that launches dsh.
+# Save the API key in DSH Settings -> Models -> CodeBuddy API.
 - id: llm-codebuddy-provider
   config:
     environment: internal
     # Optional: full API root or full chat/completions endpoint.
     # baseURL: https://your-codebuddy-host/v2
-    apiKeyEnv: CODEBUDDY_API_KEY
     timeoutMs: 180000
     includeUsage: true
     autoUpdateModels: true
-    modelRefreshIntervalMs: 1800000
     models:
       - id: auto
         name: CodeBuddy Auto

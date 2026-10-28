@@ -32,18 +32,17 @@ test('saved credential changes reach the next model request without a plugin res
   await once(server, 'listening')
   t.after(() => { server.closeAllConnections(); server.close() })
   const ctx = new Context()
-  const keys = new Map([['CUSTOM_CODEBUDDY_KEY', 'ck_first']])
+  const keys = new Map([['CODEBUDDY_API_KEY', 'ck_first']])
+  let fallbackSource = 'env'
   const refs = []
   ctx.provide('credentials', { resolve: async ref => {
     refs.push(ref)
     const value = keys.get(ref)
-    return value ? { value, source: 'stored' } : undefined
+    return value ? { value, source: 'file' } : { value: 'ck_stale_ambient', source: fallbackSource }
   } })
-  // A missing store reference must not bypass the credentials service and
-  // fall back to a different environment snapshot behind its back.
-  ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { CUSTOM_CODEBUDDY_KEY: 'ck_stale_ambient' } }]))
+  ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { CODEBUDDY_API_KEY: 'ck_stale_ambient' } }]))
   const runtime = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(host, { baseURL: `http://127.0.0.1:${server.address().port}/v2`, apiKeyEnv: 'CUSTOM_CODEBUDDY_KEY', autoUpdateModels: false })
+  const fiber = ctx.plugin(host, { baseURL: `http://127.0.0.1:${server.address().port}/v2`, autoUpdateModels: false })
   await runtime.await()
   await fiber.await()
   const uid = fiber.uid
@@ -54,18 +53,23 @@ test('saved credential changes reach the next model request without a plugin res
   }
   try {
     assert.equal((await run()).reason.kind, 'stop')
-    keys.set('CUSTOM_CODEBUDDY_KEY', 'ck_second')
+    keys.set('CODEBUDDY_API_KEY', 'ck_second')
     assert.equal((await run()).reason.kind, 'stop')
     assert.deepEqual(headers, ['Bearer ck_first', 'Bearer ck_second'])
-    assert.deepEqual(refs, ['CUSTOM_CODEBUDDY_KEY', 'CUSTOM_CODEBUDDY_KEY'])
+    assert.deepEqual(refs, ['CODEBUDDY_API_KEY', 'CODEBUDDY_API_KEY'])
     assert.equal(fiber.uid, uid)
     keys.clear()
-    assert.equal((await run()).reason.failure.code, 'MISSING_CREDENTIAL')
+    for (const source of ['env', 'user-env', 'project-env']) {
+      fallbackSource = source
+      const failure = (await run()).reason.failure
+      assert.equal(failure.code, 'MISSING_CREDENTIAL')
+      assert.ok(!failure.message.includes('ck_stale_ambient'))
+    }
     assert.equal(headers.length, 2)
   } finally { await ctx.fiber.dispose() }
 })
 
-function clientFixture({ configured = false, writable = true, writeRefused = false } = {}) {
+function clientFixture({ configured = false, writable = true, writeRefused = false, source = 'file' } = {}) {
   const calls = []
   let registration
   let component
@@ -73,15 +77,16 @@ function clientFixture({ configured = false, writable = true, writeRefused = fal
   const ctx = {
     remote: {
       settings: {
-        describe: async () => ({ ok: true, value: { namespaces: [{ ns: 'llm-codebuddy-provider', value: { apiKeyEnv: 'CUSTOM_CODEBUDDY_KEY' } }] } }),
+        describe: () => { throw new Error('API key configuration must not depend on environment references in settings') },
         mutate: () => { throw new Error('Secrets must not be written into settings') },
       },
       credentials: {
-        describe: async refs => ({ ok: true, value: { [refs[0]]: { configured: saved, writable } } }),
+        describe: async refs => ({ ok: true, value: { [refs[0]]: { configured: saved, writable, source } } }),
         set: async (ref, value) => {
           calls.push({ ref, value })
           if (writeRefused) return { ok: false, error: { message: value } }
           saved = true
+          source = 'file'
           return { ok: true }
         },
       },
@@ -99,10 +104,19 @@ test('settings card stores a key via credentials Remote and exposes only redacte
   const fixture = clientFixture()
   assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
   await fixture.actions.save('  ck_new_key  ')
-  assert.deepEqual(fixture.calls, [{ ref: 'CUSTOM_CODEBUDDY_KEY', value: 'ck_new_key' }])
+  assert.deepEqual(fixture.calls, [{ ref: 'CODEBUDDY_API_KEY', value: 'ck_new_key' }])
   const status = await fixture.actions.status()
   assert.deepEqual({ ...status }, { configured: true, writable: true })
   assert.ok(!JSON.stringify(status).includes('ck_new_key'))
+})
+
+test('settings ignores ambient keys and lets the user save a stored key instead', async () => {
+  for (const source of ['env', 'user-env', 'project-env']) {
+    const fixture = clientFixture({ configured: true, source })
+    assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
+    await fixture.actions.save('ck_saved')
+    assert.deepEqual({ ...await fixture.actions.status() }, { configured: true, writable: true })
+  }
 })
 
 test('settings card rejects invalid keys and does not reflect server error secrets', async () => {
@@ -122,5 +136,6 @@ test('settings card renders a masked API key input with browser autofill disable
   assert.match(html, /type="password"/)
   assert.match(html, /autoComplete="new-password"/)
   assert.match(html, /保存密钥/)
-  assert.ok(!html.includes('CUSTOM_CODEBUDDY_KEY'))
+  assert.ok(!html.includes('CODEBUDDY_API_KEY'))
+  assert.ok(!html.includes('30 分钟'))
 })

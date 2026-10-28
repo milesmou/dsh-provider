@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "dsh-codebuddy-provider",
-    "description": "通过 API Key 在 DSH 中使用 CodeBuddy 模型，支持模型列表自动更新。"
+    "description": "通过 API Key 在 DSH 中使用 CodeBuddy 模型，启动时自动获取模型列表。"
   }
 }

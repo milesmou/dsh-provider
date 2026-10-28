@@ -64,7 +64,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
   override providerInfo(provider: string) { return { id: provider, name: 'CodeBuddy API' } }
 
   override async listModels(provider: string) {
-    await this.connection.catalog?.refresh()
+    await this.connection.catalog?.ready()
     return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: ['text' as const] }))
   }
 

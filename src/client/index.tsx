@@ -5,33 +5,25 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { CodeBuddyKeyCard } from './card.js'
 import type { CredentialActions } from './card.js'
+import { API_KEY_REF } from '../credential.js'
 
-const NS = 'llm-codebuddy-provider'
 export const name = 'codebuddy-provider-settings'
-export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings']
+export const inject = ['slots', 'remote', 'remote.credentials']
 
-/** The standard credentials Remote handles all writes; config holds only a reference. */
+/** The standard credentials Remote handles storage; environment sources are ignored. */
 export function apply(ctx: Context): void {
-  async function reference(): Promise<string> {
-    const result = await ctx.remote.settings.describe()
-    if (!result.ok) throw new Error('Settings unavailable')
-    const section = result.value.namespaces.find(entry => entry.ns === NS)
-    const value = section?.value as { apiKeyEnv?: unknown } | undefined
-    if (typeof value?.apiKeyEnv !== 'string') throw new Error('CodeBuddy settings unavailable')
-    return value.apiKeyEnv
-  }
   const actions: CredentialActions = {
     status: async () => {
-      const ref = await reference()
+      const ref = API_KEY_REF
       const response = await ctx.remote.credentials.describe([ref])
       if (!response.ok || !response.value[ref]) throw new Error('Credential state unavailable')
       const info = response.value[ref]
-      return { configured: info.configured, writable: info.writable }
+      return { configured: info.configured && info.source === 'file', writable: info.writable }
     },
     save: async value => {
       const trimmed = value.trim()
       if (!trimmed || /[^\x21-\x7e]/.test(trimmed)) throw new Error('Invalid credential')
-      const response = await ctx.remote.credentials.set(await reference(), trimmed)
+      const response = await ctx.remote.credentials.set(API_KEY_REF, trimmed)
       if (!response.ok) throw new Error('Credential write refused')
     },
   }

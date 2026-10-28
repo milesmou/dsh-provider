@@ -2,56 +2,43 @@ import type { Context } from '@deepseek-ai/cordis'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
 import { LlmError, assertUsableApiKey } from '@deepseek-ai/dsh-llm'
 import { credentialRef } from '@deepseek-ai/dsh-credentials'
-import type {} from '@deepseek-ai/dsh-settings'
 import { CodeBuddyAdapter } from './adapter.js'
 import { ModelCatalog } from './catalog.js'
 import { resolveBaseURL, validateModels } from './config.js'
-import type { PluginConfig } from './config.js'
+import type { Options } from './config.js'
+import { API_KEY_REF } from './credential.js'
 
 export { Config } from './config.js'
 export type { Options, ModelConfig } from './config.js'
 export const name = 'llm-codebuddy-provider'
 export const inject = ['llm']
 
-export function apply(ctx: Context, config: PluginConfig): void {
+export function apply(ctx: Context, config: Options): void {
   validateModels(config.models)
   const environment = launchEnvironmentOf(ctx)
-  const initialRef = credentialRef(config.apiKeyEnv.get())
-  const options = { ...config, apiKeyEnv: initialRef }
-  const baseURL = resolveBaseURL(options, key => environment.get(key)?.value)
+  const ref = credentialRef(API_KEY_REF)
+  const baseURL = resolveBaseURL(config, key => environment.get(key)?.value)
   const connection = {
     baseURL,
     resolveApiKey: async () => {
-      const ref = credentialRef(config.apiKeyEnv.get())
-      const credentials = ctx.get('credentials')
-      // Resolve on every request so the Models page can rotate a saved key
-      // without restarting. The provider owns stored-key/environment priority.
-      const raw = credentials === undefined
-        ? environment.get(ref)?.value
-        : (await credentials.resolve(ref))?.value
-      if (!raw?.trim()) throw new LlmError('CodeBuddy: save an API key in Settings → Models → CodeBuddy API, or set ' + ref + '.', 'MISSING_CREDENTIAL')
+      const credential = await ctx.get('credentials')?.resolve(ref)
+      // Re-read saved keys per request, without accepting process or .env sources.
+      const raw = credential?.source === 'file' ? credential.value : undefined
+      if (!raw?.trim()) throw new LlmError('CodeBuddy: save an API key in Settings → Models → CodeBuddy API.', 'MISSING_CREDENTIAL')
       return assertUsableApiKey(raw, 'dsh-codebuddy-provider', ref)
     },
   }
-  const catalog = config.autoUpdateModels ? new ModelCatalog(config.models, config.modelRefreshIntervalMs, connection, () => {
+  const catalog = config.autoUpdateModels ? new ModelCatalog(config.models, connection, () => {
     ctx.emit('llm/adapters-updated')
   }) : undefined
-  const adapter = new CodeBuddyAdapter(structuredClone(options), { ...connection, catalog })
+  const adapter = new CodeBuddyAdapter(structuredClone(config), { ...connection, catalog })
   ctx.llm.registerAdapter(['codebuddy-api'], adapter)
   if (catalog) {
     // Credentials can start after the LLM route during DSH profile boot.
-    ctx.inject(['credentials'], () => { catalog.credentialsChanged() })
-    ctx.on('credentials/reference-updated', ref => {
-      if (ref === config.apiKeyEnv.get()) catalog.credentialsChanged()
+    ctx.inject(['credentials'], () => { void catalog.refresh() })
+    ctx.on('credentials/reference-updated', updated => {
+      if (updated === ref) catalog.credentialsChanged()
     })
-    ctx.effect(() => {
-      void catalog.refresh()
-      const timer = setInterval(() => { void catalog.refresh() }, Math.min(config.modelRefreshIntervalMs, 60000))
-      timer.unref()
-      return () => { clearInterval(timer); catalog.dispose() }
-    })
+    ctx.effect(() => () => catalog.dispose())
   }
-  ctx.inject(['settings'], child => {
-    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
-  })
 }

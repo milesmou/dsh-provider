@@ -48,7 +48,6 @@ export function parseCatalog(value: unknown): ModelConfig[] {
 /** Cache the last successful catalog; a failed refresh never empties the selector. */
 export class ModelCatalog {
   private remote: ModelConfig[] = []
-  private nextRefresh = 0
   private pending?: Promise<void>
   private controller = new AbortController()
   private generation = 0
@@ -56,7 +55,6 @@ export class ModelCatalog {
 
   constructor(
     private readonly manual: ModelConfig[],
-    private readonly intervalMs: number,
     private readonly connection: CatalogConnection,
     private readonly changed: () => void = () => {},
   ) {}
@@ -74,7 +72,6 @@ export class ModelCatalog {
   refresh(): Promise<void> {
     if (this.disposed) return Promise.resolve()
     if (this.pending) return this.pending
-    if (Date.now() < this.nextRefresh) return Promise.resolve()
     const generation = this.generation
     const signal = AbortSignal.any([this.controller.signal, AbortSignal.timeout(10000)])
     const task = (async () => {
@@ -89,19 +86,22 @@ export class ModelCatalog {
         if (!response.ok) { await response.body?.cancel(); throw new Error('CodeBuddy catalog unavailable') }
         const models = parseCatalog(await response.json())
         if (this.disposed || generation !== this.generation) return
-        this.nextRefresh = Date.now() + this.intervalMs
         if (JSON.stringify(models) !== JSON.stringify(this.remote)) {
           this.remote = models
           this.changed()
         }
       } catch {
         // Never surface transport bodies/headers, which can echo the API key.
-        if (generation === this.generation) this.nextRefresh = Date.now() + Math.min(this.intervalMs, 60000)
       }
     })()
     this.pending = task
     void task.finally(() => { if (this.pending === task) this.pending = undefined })
     return task
+  }
+
+  /** Wait for startup/key-save discovery; opening the selector performs no I/O. */
+  async ready(): Promise<void> {
+    while (this.pending && !this.disposed) await this.pending
   }
 
   credentialsChanged(): void {
@@ -110,7 +110,6 @@ export class ModelCatalog {
     this.controller.abort()
     this.controller = new AbortController()
     this.pending = undefined
-    this.nextRefresh = 0
     const hadModels = this.remote.length > 0
     this.remote = []
     if (hadModels) this.changed()
