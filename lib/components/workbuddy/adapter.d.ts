@@ -1,6 +1,6 @@
 import { LlmAdapter } from '@deepseek-ai/dsh-llm';
 import type { GenerateOptions, ImageBlock, LlmResolvedModelInfo, ModelModality, StreamChunk } from '@deepseek-ai/dsh-llm';
-import type { Options } from './config.js';
+import type { ModelConfig, Options } from './config.js';
 import type { ModelCatalog } from './catalog.js';
 export interface Connection {
     baseURL: string;
@@ -24,6 +24,8 @@ export interface Connection {
     recordCredit?: (sessionId: string | undefined, credit: number) => void;
     fetch?: typeof fetch;
     catalog?: ModelCatalog;
+    /** Built-in model shown before/without a catalog result; never user-configured. */
+    fallback?: ModelConfig[];
 }
 export declare class CodeBuddyAdapter extends LlmAdapter {
     private readonly config;
@@ -43,6 +45,8 @@ export declare class CodeBuddyAdapter extends LlmAdapter {
         name: string;
         inputModalities: readonly ModelModality[];
     }[]>;
+    /** Models to advertise: the live catalog when present, else the built-in baseline. */
+    private modelList;
     private modelConfig;
     /**
      * Read every image occurrence of the request into a base64 data URL once, so

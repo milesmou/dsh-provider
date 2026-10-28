@@ -81,19 +81,19 @@ export class ModelCatalog {
   private disposed = false
 
   constructor(
-    private readonly manual: ModelConfig[],
+    private readonly baseline: ModelConfig[],
     private readonly connection: CatalogConnection,
     private readonly changed: () => void = () => {},
   ) {}
 
   models(): ModelConfig[] {
     const models = new Map(this.remote.map(model => [model.id, model]))
-    for (const model of this.manual) {
+    for (const model of this.baseline) {
       const overrides = Object.fromEntries(Object.entries(model).filter(([, value]) => value !== undefined))
       models.set(model.id, { ...models.get(model.id), ...overrides } as ModelConfig)
     }
-    // Keep explicit choices, including Auto, ahead of the discovered models.
-    return [...this.manual.map(model => models.get(model.id)!), ...[...models.values()].filter(model => !this.manual.some(item => item.id === model.id))]
+    // Keep the built-in baseline entry (Auto) ahead of the discovered models.
+    return [...this.baseline.map(model => models.get(model.id)!), ...[...models.values()].filter(model => !this.baseline.some(item => item.id === model.id))]
   }
 
   refresh(): Promise<void> {

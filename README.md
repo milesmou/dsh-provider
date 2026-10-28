@@ -38,10 +38,7 @@ github:milesmou/dsh-provider#main
   config:
     workbuddy:
       mode: workbuddy          # api 或 workbuddy
-      workbuddyRegion: cn     # cn 或 intl
-      models:
-        - id: auto
-          name: WorkBuddy Auto
+      workbuddyRegion: cn      # cn 或 intl
 ```
 
-WorkBuddy 的配置位于 `config.workbuddy`。手动模型配置优先于自动目录；`autoUpdateModels: false` 关闭自动获取。API Key 模式支持 `environment: overseas` 或自定义 `baseURL`；WorkBuddy 登录始终使用所选版本的官方地址。更多配置见 [配置示例](examples/cordis.patch.yml)。
+WorkBuddy 的配置位于 `config.workbuddy`。模型列表始终由官方接口自动获取，无需手动配置。API Key 模式支持 `environment: overseas` 或自定义 `baseURL`；WorkBuddy 登录始终使用所选版本的官方地址。更多配置见 [配置示例](examples/cordis.patch.yml)。

@@ -7,7 +7,7 @@ import type {} from '@deepseek-ai/dsh-settings'
 import { CodeBuddyAdapter } from './adapter.js'
 import type { Connection } from './adapter.js'
 import { ModelCatalog } from './catalog.js'
-import { resolveBaseURL, validateModels } from './config.js'
+import { resolveBaseURL, baselineModels } from './config.js'
 import type { PluginConfig } from './config.js'
 import { API_KEY_REF } from './credential.js'
 import { SETTINGS_NAMESPACE, MODEL_ROUTE } from './identity.js'
@@ -55,7 +55,6 @@ function imageResolver(ctx: Context): Connection['resolveImage'] {
 }
 
 export function apply(ctx: Context, config: PluginConfig): void {
-  validateModels(config.models)
   const { mode, workbuddyRegion, ...options } = config
   const environment = launchEnvironmentOf(ctx)
   const ref = credentialRef(API_KEY_REF)
@@ -101,12 +100,11 @@ export function apply(ctx: Context, config: PluginConfig): void {
         },
       }
     }
-    const models = mode.get() === 'workbuddy' && config.models.length === 1 && config.models[0].id === 'auto' && config.models[0].name === 'CodeBuddy Auto'
-      ? [{ id: workbuddyRegion.get() === 'cn' ? 'auto' : 'default-model', name: 'WorkBuddy Auto' }]
-      : config.models
-    catalog = config.autoUpdateModels ? new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated')) : undefined
-    adapter = new CodeBuddyAdapter(structuredClone({ ...options, models }), { ...connection, catalog })
-    void catalog?.refresh()
+    const models = baselineModels(mode.get(), workbuddyRegion.get())
+    connection.fallback = models
+    catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'))
+    adapter = new CodeBuddyAdapter(structuredClone(options), { ...connection, catalog })
+    void catalog.refresh()
   }
   rebuild()
   ctx.llm.registerAdapter([MODEL_ROUTE], new SwitchingAdapter(() => adapter))

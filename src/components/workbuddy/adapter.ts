@@ -32,6 +32,8 @@ export interface Connection {
   recordCredit?: (sessionId: string | undefined, credit: number) => void
   fetch?: typeof fetch
   catalog?: ModelCatalog
+  /** Built-in model shown before/without a catalog result; never user-configured. */
+  fallback?: ModelConfig[]
 }
 
 /** Declared input modalities when the catalog is silent: WorkBuddy chat models take text and images. */
@@ -118,11 +120,16 @@ export class CodeBuddyAdapter extends LlmAdapter {
 
   override async listModels(provider: string) {
     await this.connection.catalog?.ready()
-    return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: inputModalitiesOf(model) }))
+    return this.modelList().map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: inputModalitiesOf(model) }))
+  }
+
+  /** Models to advertise: the live catalog when present, else the built-in baseline. */
+  private modelList(): ModelConfig[] {
+    return this.connection.catalog?.models() ?? this.connection.fallback ?? []
   }
 
   private modelConfig(id: string): ModelConfig {
-    return (this.connection.catalog?.models() ?? this.config.models).find(model => model.id === id) ?? { id }
+    return this.modelList().find(model => model.id === id) ?? { id }
   }
 
   /**

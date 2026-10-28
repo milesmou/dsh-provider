@@ -5,6 +5,11 @@ import type { WorkBuddyRegion } from './session.js'
 export type Mode = 'api' | 'workbuddy'
 export type PluginConfig = Options & { mode: Volatile<Mode>; workbuddyRegion: Volatile<WorkBuddyRegion> }
 
+/**
+ * One model entry. Always produced by the catalog now; the fields beyond
+ * identity are whatever the catalog disclosed (capacity, image support, and
+ * thinking levels). The baseline entry below carries only identity.
+ */
 export interface ModelConfig {
   id: string
   name?: string
@@ -25,8 +30,6 @@ export interface Options {
   baseURL: string
   timeoutMs: number
   includeUsage: boolean
-  autoUpdateModels: boolean
-  models: ModelConfig[]
 }
 
 export const Config = z.object({
@@ -36,18 +39,21 @@ export const Config = z.object({
   baseURL: z.string().default(''),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),
   includeUsage: z.boolean().default(true),
-  autoUpdateModels: z.boolean().default(true),
-  models: z.array(z.object({
-    id: z.string().required(),
-    name: z.string(),
-    contextWindow: z.number().step(1).min(1),
-    maxTokens: z.number().step(1).min(1),
-    supportsImages: z.boolean(),
-    reasoningEfforts: z.array(z.string()),
-    defaultReasoningEffort: z.string(),
-    canDisableThinking: z.boolean(),
-  })).default([{ id: 'auto', name: 'CodeBuddy Auto' }]),
 })
+
+/**
+ * The built-in model shown before the catalog's first load, and the fallback
+ * when discovery never succeeds. It is not user-configurable: the catalog is
+ * the single source of truth for the model list.
+ */
+export function baselineModels(mode: Mode, region: WorkBuddyRegion): ModelConfig[] {
+  if (mode === 'workbuddy') {
+    return region === 'intl'
+      ? [{ id: 'default-model', name: 'WorkBuddy Auto' }]
+      : [{ id: 'auto', name: 'WorkBuddy Auto' }]
+  }
+  return [{ id: 'auto', name: 'CodeBuddy Auto' }]
+}
 
 export type ReadEnvironment = (name: string) => string | undefined
 
@@ -67,28 +73,4 @@ export function resolveBaseURL(config: Options, read: ReadEnvironment): string {
   }
   url.pathname = url.pathname.replace(/\/+$/, '').replace(/\/chat\/completions$/, '') || '/v2'
   return url.toString().replace(/\/+$/, '')
-}
-
-export function validateModels(models: ModelConfig[]): void {
-  if (!models.length) throw new Error('CodeBuddy: configure at least one model ID.')
-  const ids = new Set<string>()
-  // WorkBuddy/CodeBuddy levels (none off, low..max); OpenAI spellings are also accepted.
-  const supportedEfforts = new Set(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
-  for (const model of models) {
-    if (!model.id.trim() || model.id !== model.id.trim() || ids.has(model.id)) {
-      throw new Error('CodeBuddy: model IDs must be unique, nonempty and have no surrounding whitespace.')
-    }
-    if (model.contextWindow && model.maxTokens && model.maxTokens > model.contextWindow) {
-      throw new Error(`CodeBuddy: maxTokens exceeds contextWindow for ${model.id}.`)
-    }
-    if (new Set(model.reasoningEfforts).size !== (model.reasoningEfforts?.length ?? 0)
-      || model.reasoningEfforts?.some(effort => !supportedEfforts.has(effort))) {
-      throw new Error(`CodeBuddy: invalid reasoningEfforts for ${model.id}.`)
-    }
-    if (model.defaultReasoningEffort !== undefined
-      && (!model.reasoningEfforts?.includes(model.defaultReasoningEffort) || !supportedEfforts.has(model.defaultReasoningEffort))) {
-      throw new Error(`CodeBuddy: defaultReasoningEffort must be one of reasoningEfforts for ${model.id}.`)
-    }
-    ids.add(model.id)
-  }
 }

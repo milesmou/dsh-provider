@@ -6,6 +6,11 @@ export type PluginConfig = Options & {
     mode: Volatile<Mode>;
     workbuddyRegion: Volatile<WorkBuddyRegion>;
 };
+/**
+ * One model entry. Always produced by the catalog now; the fields beyond
+ * identity are whatever the catalog disclosed (capacity, image support, and
+ * thinking levels). The baseline entry below carries only identity.
+ */
 export interface ModelConfig {
     id: string;
     name?: string;
@@ -25,8 +30,6 @@ export interface Options {
     baseURL: string;
     timeoutMs: number;
     includeUsage: boolean;
-    autoUpdateModels: boolean;
-    models: ModelConfig[];
 }
 export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
@@ -35,26 +38,6 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;
     includeUsage: z<boolean, boolean, "defined">;
-    autoUpdateModels: z<boolean, boolean, "defined">;
-    models: z<({
-        id?: string | null | undefined;
-        name?: string | null | undefined;
-        contextWindow?: number | null | undefined;
-        maxTokens?: number | null | undefined;
-        supportsImages?: boolean | null | undefined;
-        reasoningEfforts?: string[] | null | undefined;
-        defaultReasoningEffort?: string | null | undefined;
-        canDisableThinking?: boolean | null | undefined;
-    } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
-        id: z<string, string, "defined">;
-        name: z<string, string, "plain">;
-        contextWindow: z<number, number, "plain">;
-        maxTokens: z<number, number, "plain">;
-        supportsImages: z<boolean, boolean, "plain">;
-        reasoningEfforts: z<string[], string[], "plain">;
-        defaultReasoningEffort: z<string, string, "plain">;
-        canDisableThinking: z<boolean, boolean, "plain">;
-    }>>[], "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
     mode: z<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
@@ -62,28 +45,13 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     baseURL: z<string, string, "defined">;
     timeoutMs: z<number, number, "defined">;
     includeUsage: z<boolean, boolean, "defined">;
-    autoUpdateModels: z<boolean, boolean, "defined">;
-    models: z<({
-        id?: string | null | undefined;
-        name?: string | null | undefined;
-        contextWindow?: number | null | undefined;
-        maxTokens?: number | null | undefined;
-        supportsImages?: boolean | null | undefined;
-        reasoningEfforts?: string[] | null | undefined;
-        defaultReasoningEffort?: string | null | undefined;
-        canDisableThinking?: boolean | null | undefined;
-    } & import("@deepseek-ai/cosmokit").Dict)[], Schemastery.ObjectT<NoInfer<{
-        id: z<string, string, "defined">;
-        name: z<string, string, "plain">;
-        contextWindow: z<number, number, "plain">;
-        maxTokens: z<number, number, "plain">;
-        supportsImages: z<boolean, boolean, "plain">;
-        reasoningEfforts: z<string[], string[], "plain">;
-        defaultReasoningEffort: z<string, string, "plain">;
-        canDisableThinking: z<boolean, boolean, "plain">;
-    }>>[], "defined">;
 }>>, "plain">;
+/**
+ * The built-in model shown before the catalog's first load, and the fallback
+ * when discovery never succeeds. It is not user-configurable: the catalog is
+ * the single source of truth for the model list.
+ */
+export declare function baselineModels(mode: Mode, region: WorkBuddyRegion): ModelConfig[];
 export type ReadEnvironment = (name: string) => string | undefined;
 /** Custom URL wins over region, matching Codeg's self-hosted selection. */
 export declare function resolveBaseURL(config: Options, read: ReadEnvironment): string;
-export declare function validateModels(models: ModelConfig[]): void;

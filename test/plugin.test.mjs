@@ -21,12 +21,10 @@ test('root mounts and disposes the WorkBuddy component with its own model route'
   const ctx = new Context()
   const runtime = ctx.plugin(LlmRuntime)
   await runtime.await()
-  const fiber = ctx.plugin(plugin, { workbuddy: {
-    autoUpdateModels: false, models: [{ id: 'custom-model', name: 'Custom model' }],
-  } })
+  const fiber = ctx.plugin(plugin, { workbuddy: {} })
   await fiber.await()
   try {
-    assert.equal((await ctx.llm.listModels('workbuddy'))[0].id, 'custom-model')
+    assert.deepEqual((await ctx.llm.listModels('workbuddy')).map(model => model.id), ['auto'])
     assert.ok(ctx.get('workbuddyProvider'))
     await fiber.dispose()
     assert.deepEqual(ctx.llm.listProviders(), [])

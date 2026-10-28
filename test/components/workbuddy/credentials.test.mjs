@@ -24,7 +24,9 @@ runInNewContext(await readFile(new URL('../../../lib/client.js', import.meta.url
 test('saved credential changes reach the next model request without a plugin restart', async t => {
   const headers = []
   const server = createServer((request, response) => {
-    headers.push(request.headers.authorization)
+    // Record only the chat calls under test; the always-on catalog discovery
+    // hits /models and is not part of this assertion.
+    if ((request.url ?? '').endsWith('/chat/completions')) headers.push(request.headers.authorization)
     response.writeHead(200, { 'content-type': 'text/event-stream' })
     response.end('data: ' + JSON.stringify({ choices: [{ index: 0, delta: { content: 'ok' }, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n')
   })
@@ -35,21 +37,25 @@ test('saved credential changes reach the next model request without a plugin res
   const keys = new Map([['DSH_PROVIDER_WORKBUDDY_API_KEY', 'ck_first']])
   let fallbackSource = 'env'
   const refs = []
+  let recordingRefs = false
   ctx.provide('credentials', { resolve: async ref => {
-    refs.push(ref)
+    if (recordingRefs) refs.push(ref)
     const value = keys.get(ref)
     return value ? { value, source: 'file' } : { value: 'ck_stale_ambient', source: fallbackSource }
   } })
   ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { DSH_PROVIDER_WORKBUDDY_API_KEY: 'ck_stale_ambient' } }]))
   const runtime = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(host, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2`, autoUpdateModels: false } })
+  const fiber = ctx.plugin(host, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` } })
   await runtime.await()
   await fiber.await()
   const uid = fiber.uid
   const run = async () => {
-    const chunks = []
-    for await (const chunk of ctx.llm.stream({ provider: 'workbuddy', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: 'ping' }] }] })) chunks.push(chunk)
-    return chunks.at(-1)
+    recordingRefs = true
+    try {
+      const chunks = []
+      for await (const chunk of ctx.llm.stream({ provider: 'workbuddy', model: 'auto', messages: [{ role: 'user', content: [{ type: 'text', text: 'ping' }] }] })) chunks.push(chunk)
+      return chunks.at(-1)
+    } finally { recordingRefs = false }
   }
   try {
     assert.equal((await run()).reason.kind, 'stop')
