@@ -179,9 +179,48 @@ test('cancellation and deadline abort an idle stream', async t => {
   }
 })
 
-test('unsupported image input is rejected before any request', async () => {
-  const adapter = new CodeBuddyAdapter(config(), { baseURL: 'http://127.0.0.1:1/v2', resolveApiKey: async () => 'test' })
-  await assert.rejects(() => collect(adapter, { messages: [{ role: 'user', content: [{ type: 'image', attachment: {} }] }] }), { code: 'UNSUPPORTED_CONTENT' })
+const imageBlock = { type: 'image', attachment: { attachmentId: 'sha256:abcdef0123456789', mediaType: 'image/png', width: 4, height: 4, bytes: 88 } }
+
+test('an image with no attachment service degrades to the text placeholder and still sends', async t => {
+  let captured
+  const adapter = await fixture(t, async (req, res) => {
+    let data = ''
+    for await (const part of req) data += part
+    captured = JSON.parse(data)
+    res.writeHead(200, { 'content-type': 'text/event-stream' })
+    res.end(sse(chunk({ content: 'ok' }, 'stop')))
+  })
+  await collect(adapter, { messages: [{ role: 'user', content: [{ type: 'text', text: '看图' }, imageBlock] }] })
+  const user = captured.messages.find(message => message.role === 'user')
+  // No resolver: the image becomes the framework's text placeholder, not a request failure.
+  assert.ok(Array.isArray(user.content))
+  assert.equal(user.content[0].type, 'text')
+  assert.match(user.content[1].text, /image omitted because this model accepts text only/)
+})
+
+test('an image is forwarded as a base64 image_url data URL when a resolver is supplied', async t => {
+  let captured
+  const server = createServer(async (req, res) => {
+    let data = ''
+    for await (const part of req) data += part
+    captured = JSON.parse(data)
+    res.writeHead(200, { 'content-type': 'text/event-stream' })
+    res.end(sse(chunk({ content: 'ok' }, 'stop')))
+  })
+  server.listen(0, '127.0.0.1')
+  await once(server, 'listening')
+  t.after(() => { server.closeAllConnections(); server.close() })
+  const adapter = new CodeBuddyAdapter(config(), {
+    baseURL: `http://127.0.0.1:${server.address().port}/v2`,
+    resolveApiKey: async () => 'ck_test-only-secret',
+    resolveImage: async () => 'data:image/png;base64,iVBORw0KGgo=',
+  })
+  await collect(adapter, { messages: [{ role: 'user', content: [{ type: 'text', text: '看图' }, imageBlock] }] })
+  const user = captured.messages.find(message => message.role === 'user')
+  assert.ok(Array.isArray(user.content))
+  const imagePart = user.content.find(part => part.type === 'image_url')
+  assert.ok(imagePart)
+  assert.equal(imagePart.image_url.url, 'data:image/png;base64,iVBORw0KGgo=')
 })
 
 test('actual Cordis lifecycle registers models and disposes the provider', async () => {
@@ -195,8 +234,10 @@ test('actual Cordis lifecycle registers models and disposes the provider', async
   try {
     assert.ok(ctx.llm.listProviders().some(provider => provider.id === 'workbuddy'))
     assert.equal((await ctx.llm.listModels('workbuddy'))[0].id, 'glm-4.7')
+    assert.deepEqual((await ctx.llm.listModels('workbuddy'))[0].inputModalities, ['text', 'image'])
     const model = await ctx.llm.resolveModelInfo('workbuddy', 'glm-4.7')
     assert.equal(model.context.contextWindow, 200000)
+    assert.deepEqual(model.inputModalities, ['text', 'image'])
     const chunks = []
     for await (const value of ctx.llm.stream(request({ model: 'glm-4.7' }))) chunks.push(value)
     assert.equal(chunks.at(-1).reason.failure.code, 'MISSING_CREDENTIAL')

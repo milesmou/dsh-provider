@@ -1,5 +1,5 @@
 import { LlmAdapter } from '@deepseek-ai/dsh-llm';
-import type { GenerateOptions, LlmResolvedModelInfo, StreamChunk } from '@deepseek-ai/dsh-llm';
+import type { GenerateOptions, ImageBlock, LlmResolvedModelInfo, ModelModality, StreamChunk } from '@deepseek-ai/dsh-llm';
 import type { Options } from './config.js';
 import type { ModelCatalog } from './catalog.js';
 export interface Connection {
@@ -11,6 +11,12 @@ export interface Connection {
     }>;
     workbuddy?: boolean;
     providerName?: string;
+    /**
+     * Resolve one durable image reference to a base64 data URL the provider
+     * accepts. Backed by the attachment service; absent means images degrade to
+     * the framework's text-only placeholder.
+     */
+    resolveImage?: (ref: ImageBlock['attachment'], signal?: AbortSignal) => Promise<string>;
     fetch?: typeof fetch;
     catalog?: ModelCatalog;
 }
@@ -30,9 +36,17 @@ export declare class CodeBuddyAdapter extends LlmAdapter {
         provider: string;
         id: string;
         name: string;
-        inputModalities: "text"[];
+        inputModalities: readonly ModelModality[];
     }[]>;
     private modelConfig;
+    /**
+     * Read every image occurrence of the request into a base64 data URL once, so
+     * message building stays synchronous. An offloaded image, an unavailable
+     * attachment service, or a read failure simply yields no entry for that
+     * attachment id, and message building falls back to the text-only placeholder
+     * for it rather than failing the request.
+     */
+    private resolveImages;
     resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo>;
     stream(options: GenerateOptions): AsyncIterable<StreamChunk>;
 }

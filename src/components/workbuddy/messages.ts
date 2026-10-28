@@ -1,6 +1,15 @@
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions } from '@deepseek-ai/dsh-llm'
-import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions'
+import { textOnlyImageText } from '@deepseek-ai/dsh-llm'
+import type { ChatCompletionContentPart, ChatCompletionMessageParam } from 'openai/resources/chat/completions'
+
+/**
+ * Data URLs for images in one request, keyed by durable attachment id. The
+ * adapter resolves these asynchronously (through the attachment service) before
+ * message building, because the durable `ImageBlock` carries only a reference,
+ * not bytes. A missing entry degrades to the framework's text-only placeholder.
+ */
+export type ImageDataUrls = ReadonlyMap<string, string>
 
 function textOf(content: readonly ContentBlock[]): string {
   return content.map(block => {
@@ -11,7 +20,36 @@ function textOf(content: readonly ContentBlock[]): string {
   }).join('')
 }
 
-export function toMessages(options: GenerateOptions): ChatCompletionMessageParam[] {
+/**
+ * Build the `content` of one user/tool message. A message with no image block
+ * keeps the plain string form every turn already used; once an image is present
+ * the content becomes the OpenAI multipart array, with each image a `image_url`
+ * part carrying a base64 data URL. An image the adapter could not resolve (no
+ * attachment service, or a read failure) becomes the same text-only placeholder
+ * the framework emits for text-only models, so one unreadable image never fails
+ * the whole request.
+ */
+function contentOf(content: readonly ContentBlock[], images: ImageDataUrls): string | ChatCompletionContentPart[] {
+  if (!content.some(block => block.type === 'image')) return content.map(block => {
+    if (block.type === 'text') return block.text
+    throw new LlmError(`CodeBuddy: unsupported input block ${block.type}; this version accepts text.`, 'UNSUPPORTED_CONTENT')
+  }).join('')
+  const parts: ChatCompletionContentPart[] = []
+  for (const block of content) {
+    if (block.type === 'text') { parts.push({ type: 'text', text: block.text }); continue }
+    if (block.type === 'image') {
+      const url = images.get(String(block.attachment.attachmentId))
+      parts.push(url
+        ? { type: 'image_url', image_url: { url } }
+        : { type: 'text', text: textOnlyImageText(block.attachment) })
+      continue
+    }
+    throw new LlmError(`CodeBuddy: unsupported input block ${block.type}; this version accepts text and images.`, 'UNSUPPORTED_CONTENT')
+  }
+  return parts
+}
+
+export function toMessages(options: GenerateOptions, images: ImageDataUrls = new Map()): ChatCompletionMessageParam[] {
   const messages: ChatCompletionMessageParam[] = []
   if (options.system) messages.push({ role: 'system', content: options.system })
   for (const message of options.messages) {
@@ -44,7 +82,7 @@ export function toMessages(options: GenerateOptions): ChatCompletionMessageParam
       // WorkBuddy takes `system`; it has no `developer` role.
       if (text.length) messages.push({ role: 'system', content: textOf(text) })
     } else {
-      messages.push({ role: message.role, content: textOf(message.content) })
+      messages.push({ role: message.role, content: contentOf(message.content, images) } as ChatCompletionMessageParam)
     }
   }
   return messages

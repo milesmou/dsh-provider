@@ -4,9 +4,10 @@ import {
   LlmAdapter, LlmError, ToolCallId, ReasoningEffortId, ProviderRequestId,
   attributionHeaders, isContextWindowExceededError, isQuotaExceededError,
 } from '@deepseek-ai/dsh-llm'
-import type { ContentBlock, GenerateOptions, LlmResolvedModelInfo, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
+import type { ContentBlock, GenerateOptions, ImageBlock, LlmResolvedModelInfo, ModelModality, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { ModelConfig, Options } from './config.js'
 import { toMessages } from './messages.js'
+import type { ImageDataUrls } from './messages.js'
 import type { ModelCatalog } from './catalog.js'
 import { workbuddyRequest } from './workbuddy-request.js'
 import { AFTER_TOOLS_REFUSED, clientChatHeaders, replyAfterToolResults, systemAsUser } from './shaping.js'
@@ -18,9 +19,18 @@ export interface Connection {
   authenticate?: (signal?: AbortSignal) => Promise<{ apiKey: string; headers: Record<string, string> }>
   workbuddy?: boolean
   providerName?: string
+  /**
+   * Resolve one durable image reference to a base64 data URL the provider
+   * accepts. Backed by the attachment service; absent means images degrade to
+   * the framework's text-only placeholder.
+   */
+  resolveImage?: (ref: ImageBlock['attachment'], signal?: AbortSignal) => Promise<string>
   fetch?: typeof fetch
   catalog?: ModelCatalog
 }
+
+/** Declared input modalities: WorkBuddy/CodeBuddy chat models take text and images. */
+const INPUT_MODALITIES: readonly ModelModality[] = ['text', 'image']
 
 interface BlockState {
   index: number
@@ -98,17 +108,45 @@ export class CodeBuddyAdapter extends LlmAdapter {
 
   override async listModels(provider: string) {
     await this.connection.catalog?.ready()
-    return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: ['text' as const] }))
+    return (this.connection.catalog?.models() ?? this.config.models).map(model => ({ provider, id: model.id, name: model.name || model.id, inputModalities: INPUT_MODALITIES }))
   }
 
   private modelConfig(id: string): ModelConfig {
     return (this.connection.catalog?.models() ?? this.config.models).find(model => model.id === id) ?? { id }
   }
 
+  /**
+   * Read every image occurrence of the request into a base64 data URL once, so
+   * message building stays synchronous. An offloaded image, an unavailable
+   * attachment service, or a read failure simply yields no entry for that
+   * attachment id, and message building falls back to the text-only placeholder
+   * for it rather than failing the request.
+   */
+  private async resolveImages(messages: GenerateOptions['messages'], signal: AbortSignal): Promise<ImageDataUrls> {
+    const resolve = this.connection.resolveImage
+    const urls = new Map<string, string>()
+    if (!resolve) return urls
+    for (const message of messages) {
+      for (const block of message.content) {
+        if (block.type !== 'image' || block.offloaded === true) continue
+        const id = String(block.attachment.attachmentId)
+        if (urls.has(id)) continue
+        try {
+          signal.throwIfAborted()
+          urls.set(id, await resolve(block.attachment, signal))
+        } catch (error) {
+          if (signal.aborted) throw error
+          // Leave the id unresolved; the message carries the text placeholder.
+        }
+      }
+    }
+    return urls
+  }
+
   override async resolveModel(provider: string, model: string): Promise<LlmResolvedModelInfo> {
     const config = this.modelConfig(model)
     return {
-      provider, id: model, name: config.name || model, inputModalities: ['text'],
+      provider, id: model, name: config.name || model, inputModalities: INPUT_MODALITIES,
       ...(config.contextWindow ? { context: { contextWindow: config.contextWindow } } : {}),
       ...(config.maxTokens ? { defaultMaxTokens: config.maxTokens } : {}),
       ...(config.reasoningEfforts?.length ? { reasoning: {
@@ -135,8 +173,9 @@ export class CodeBuddyAdapter extends LlmAdapter {
     if (effort && !model.reasoningEfforts?.includes(effort)) {
       throw new LlmError(`CodeBuddy: configure reasoningEfforts for ${options.model} before selecting ${effort}.`, 'UNSUPPORTED_REASONING_EFFORT')
     }
+    const images = await this.resolveImages(options.messages, requestSignal)
     let body: ChatCompletionCreateParamsStreaming = {
-      model: options.model, messages: toMessages(options), stream: true,
+      model: options.model, messages: toMessages(options, images), stream: true,
       ...(this.config.includeUsage ? { stream_options: { include_usage: true } } : {}),
       ...(options.tools?.length ? { tools: options.tools.map(tool => ({
         type: 'function' as const, function: { name: tool.name, description: tool.description, parameters: tool.parameters },
