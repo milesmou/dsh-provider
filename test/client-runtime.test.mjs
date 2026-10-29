@@ -20,7 +20,7 @@ async function loadBrowserBundle(file) {
 const provider = await loadBrowserBundle(new URL('../lib/client.js', import.meta.url))
 const renderer = await loadBrowserBundle(new URL('../node_modules/@deepseek-ai/dsh-client-ui-renderer/lib/client.js', import.meta.url))
 
-for (const preMounted of [false, true]) test(`both cards survive the built-in label with settings pre-mounted: ${preMounted}`, async () => {
+test('both cards survive the built-in label without duplicating platform Remote registrations', async () => {
   const ctx = new Context()
   try {
     ctx.provide('typert', { remotes: { register: () => () => {} } })
@@ -36,7 +36,7 @@ for (const preMounted of [false, true]) test(`both cards survive the built-in la
     const builtIn = () => null
     ctx.slots.register({ name: 'conversation.input.model.label' }, builtIn)
     await ctx.plugin(gateway).await()
-    if (preMounted) await ctx.remote.$mount(SETTINGS)
+    await ctx.remote.$mount(SETTINGS)
     await ctx.plugin(provider).await()
     await new Promise(setImmediate)
 

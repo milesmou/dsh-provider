@@ -85,7 +85,7 @@ async function clientFixture({ configured = false, writable = true, writeRefused
   let selection = { mode: 'api', workbuddyRegion: 'cn' }
   const ctx = {
     effect: () => {},
-    plugin: plugin => { mounts.push(plugin.apply(ctx)) },
+    plugin: plugin => { const pending = Promise.resolve(plugin.apply(ctx)); mounts.push(pending); return { await: () => pending } },
     inject: (services, callback) => { callback(ctx) },
     get: name => name === 'remote.credentials' ? ctx.remote.credentials : name === 'remote.settings' ? ctx.remote.settings : undefined,
     remote: {

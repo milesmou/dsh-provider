@@ -18,7 +18,7 @@ test('Codex settings mounts its own Remote and slot and exposes only status and 
   const effects = []
   const ctx = {
     effect: callback => { effects.push(callback) },
-    plugin: plugin => { if (plugin.name === 'codex-component-settings') mounts.push(plugin.apply(ctx)) },
+    plugin: plugin => { const pending = plugin.name === 'codex-component-settings' ? Promise.resolve(plugin.apply(ctx)) : Promise.resolve(); mounts.push(pending); return { await: () => pending } },
     inject: (_services, callback) => callback(ctx),
     remote: {
       $mount: async remote => { descriptors.push(remote); return () => { disposed = true } },

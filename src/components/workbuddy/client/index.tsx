@@ -1,7 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
-import SETTINGS_REMOTE from '@deepseek-ai/dsh-api-settings-controller/remote'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
 import { WorkBuddyCard } from './provider-card.js'
@@ -15,22 +14,10 @@ import { REMOTE } from '../remote.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
 
 export const name = 'workbuddy-component-settings'
-export const inject = ['slots', 'remote']
+export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings']
 
 /** The standard credentials Remote handles storage; environment sources are ignored. */
 export async function apply(ctx: Context): Promise<void> {
-  // Native page assemblies need not pre-mount the generic settings namespaces.
-  // Own only the missing methods this card uses; reuse an existing assembly.
-  const required = new Set(['credentials/describe', 'credentials/set', 'settings/describe', 'settings/update'])
-  const descriptors = SETTINGS_REMOTE.descriptors.filter(descriptor => {
-    if (!required.has(`${descriptor.namespace}/${descriptor.method}`)) return false
-    const namespace = ctx.get(`remote.${descriptor.namespace}`) as Record<string, unknown> | undefined
-    return typeof namespace?.[descriptor.method] !== 'function'
-  })
-  if (descriptors.length) {
-    const disposeSettings = await ctx.remote.$mount({ package: SETTINGS_REMOTE.package, descriptors })
-    ctx.effect(() => disposeSettings)
-  }
   const dispose = await ctx.remote.$mount(REMOTE)
   ctx.effect(() => dispose)
   ctx.inject(['remote.workbuddyProvider'], mountCard)
