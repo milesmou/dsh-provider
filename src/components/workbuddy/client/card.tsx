@@ -53,11 +53,7 @@ export function CodeBuddyKeyCard({ actions }: CardProps) {
     } finally { setBusy(false) }
   }
 
-  return <section aria-label="CodeBuddy API" style={{ borderTop: field.border, paddingTop: 20, marginTop: 20, display: 'grid', gap: 10 }}>
-    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <strong>CodeBuddy API</strong>
-      <span style={{ fontSize: 12, opacity: 0.7 }}>{status === undefined ? '读取中…' : status.configured ? '已配置密钥' : '未配置密钥'}</span>
-    </div>
+  return <section aria-label="CodeBuddy API" style={{ display: 'grid', gap: 10 }}>
     <label style={{ display: 'grid', gap: 6, fontSize: 13 }}>
       API Key
       <input type="password" autoComplete="new-password" spellCheck={false}
@@ -66,10 +62,6 @@ export function CodeBuddyKeyCard({ actions }: CardProps) {
         disabled={busy || !status?.writable}
         onChange={event => { setDraft(event.target.value); setMessage('') }} />
     </label>
-    <p style={{ margin: 0, opacity: 0.7, fontSize: 12, lineHeight: 1.6 }}>
-      密钥保存在 DSH 的凭据存储中。保存后，在对话模型选择器中选择 CodeBuddy API。
-      插件启动时自动获取模型列表；首次保存或更换密钥后重新获取。
-    </p>
     {status?.writable === false ? <p role="note" style={{ margin: 0, fontSize: 12 }}>
       当前凭据存储不可写，请检查 DSH 的凭据存储配置。
     </p> : null}
