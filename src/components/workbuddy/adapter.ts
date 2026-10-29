@@ -2,7 +2,7 @@ import OpenAI from 'openai'
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/chat/completions'
 import {
   LlmAdapter, LlmError, ToolCallId, ReasoningEffortId, ProviderRequestId,
-  attributionHeaders, isContextWindowExceededError, isQuotaExceededError,
+  isContextWindowExceededError, isQuotaExceededError,
 } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, ImageBlock, LlmResolvedModelInfo, ModelModality, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { ModelConfig, Options } from './config.js'
@@ -11,6 +11,7 @@ import { toMessages } from './messages.js'
 import type { ImageDataUrls } from './messages.js'
 import type { ModelCatalog } from './catalog.js'
 import { visibleModels } from '../../model-management.js'
+import { codeBuddyApiHeaders } from './identity.js'
 import { workbuddyRequest } from './workbuddy-request.js'
 import { AFTER_TOOLS_REFUSED, clientChatHeaders, replyAfterToolResults, systemAsUser } from './shaping.js'
 import type { LooseBody } from './shaping.js'
@@ -221,7 +222,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
     const headers = this.connection.workbuddy
       ? { ...auth.headers, ...clientChatHeaders(), ...(prepared?.headers ?? {}) }
       // The official CLI supplies both headers for API-key authentication.
-      : { 'X-API-Key': apiKey, ...attributionHeaders(), ...(prepared?.headers ?? {}) }
+      : { 'X-API-Key': apiKey, ...codeBuddyApiHeaders(), ...(prepared?.headers ?? {}) }
     const post = async (payload: ChatCompletionCreateParamsStreaming) =>
       client.chat.completions.create(payload, { signal: requestSignal, headers })
     // A refused system prompt and a refused reply-after-tools are body

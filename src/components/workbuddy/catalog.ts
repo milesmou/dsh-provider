@@ -1,5 +1,6 @@
 import { resolveContextWindow } from './config.js'
 import type { ContextWindowMode, ModelConfig } from './config.js'
+import { codeBuddyApiHeaders } from './identity.js'
 interface CatalogConnection {
   baseURL: string
   resolveApiKey?(): Promise<string>
@@ -155,7 +156,7 @@ export class ModelCatalog {
         signal.throwIfAborted()
         const response = await (this.connection.fetch ?? fetch)(this.connection.catalogURL ?? catalogURL(this.connection.baseURL), {
           headers: { Accept: 'application/json', ...(auth?.headers ?? { Authorization: `Bearer ${apiKey}`, 'X-API-Key': apiKey,
-            'User-Agent': 'CLI/2.177.0 CodeBuddy/2.177.0', 'X-Product': 'SaaS' }) },
+            ...codeBuddyApiHeaders() }) },
           signal, redirect: 'error',
         })
         if (!response.ok) { await response.body?.cancel(); throw new Error('CodeBuddy catalog unavailable') }

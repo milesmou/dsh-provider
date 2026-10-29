@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
 import { once } from 'node:events'
 import { Context } from '@deepseek-ai/cordis'
-import { LlmRuntime, BlockAssembler, attributionHeaders, createAssistantMessage, createToolResultMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
+import { LlmRuntime, BlockAssembler, createAssistantMessage, createToolResultMessage, ToolCallId } from '@deepseek-ai/dsh-llm'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
 import { Config, resolveBaseURL } from '../../../lib/components/workbuddy/config.js'
@@ -50,7 +50,7 @@ test('only fixed official region endpoints are selectable and old URL overrides 
   assert.throws(() => resolveBaseURL(config(), () => 'ioa'), /only the official/)
 })
 
-test('wire request and fragmented UTF-8 stream preserve text, reasoning, attribution and cache usage', async t => {
+test('wire request and fragmented UTF-8 stream preserve text, reasoning, CodeBuddy client identity and cache usage', async t => {
   let captured
   const adapter = await fixture(t, async (req, res) => {
     let data = ''
@@ -69,7 +69,10 @@ test('wire request and fragmented UTF-8 stream preserve text, reasoning, attribu
   assert.equal(captured.path, '/v2/chat/completions')
   assert.equal(captured.headers.authorization, 'Bearer ck_test-only-secret')
   assert.equal(captured.headers['x-api-key'], 'ck_test-only-secret')
-  assert.equal(captured.headers['user-agent'], attributionHeaders()['user-agent'])
+  assert.equal(captured.headers['user-agent'], 'CLI/2.177.0 CodeBuddy/2.177.0')
+  assert.equal(captured.headers['x-ide-type'], 'CodeBuddy')
+  assert.equal(captured.headers['x-ide-name'], 'CodeBuddy')
+  assert.equal(captured.headers['x-product'], 'SaaS')
   assert.equal(captured.body.max_tokens, 512)
   assert.equal(captured.body.messages[0].role, 'system')
   assert.equal(captured.body.tools[0].function.name, 'read_file')
@@ -102,7 +105,10 @@ test('official API-key gateways accept DSH identity requests without changing AP
     assert.equal(sent.url, baseURL + '/chat/completions')
     assert.equal(sent.headers.get('authorization'), 'Bearer ck_test-only-secret')
     assert.equal(sent.headers.get('x-api-key'), 'ck_test-only-secret')
-    assert.equal(sent.headers.get('user-agent'), attributionHeaders()['user-agent'])
+    assert.equal(sent.headers.get('user-agent'), 'CLI/2.177.0 CodeBuddy/2.177.0')
+    assert.equal(sent.headers.get('x-ide-type'), 'CodeBuddy')
+    assert.equal(sent.headers.get('x-ide-name'), 'CodeBuddy')
+    assert.equal(sent.headers.get('x-product'), 'SaaS')
     assert.match(sent.headers.get('x-conversation-request-id'), /^[0-9a-f]{32}$/)
     assert.equal(body.messages[0].content, 'You are an AI agent that helps the user with programming tasks.')
     assert.equal(body.model, 'deepseek-v4.1-flash')

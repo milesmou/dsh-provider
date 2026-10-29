@@ -133,6 +133,10 @@ test('startup refresh deduplicates calls; elapsed time and selector reads never 
     calls++
     assert.equal(url, 'https://gateway.example/v3/config')
     assert.equal(options.headers['X-API-Key'], 'ck_fake')
+    assert.equal(options.headers['User-Agent'], 'CLI/2.177.0 CodeBuddy/2.177.0')
+    assert.equal(options.headers['X-IDE-Type'], 'CodeBuddy')
+    assert.equal(options.headers['X-IDE-Name'], 'CodeBuddy')
+    assert.equal(options.headers['X-Product'], 'SaaS')
     assert.equal(options.redirect, 'error')
     return refuse ? new Response('unavailable', { status: 503 }) : Response.json({ data: [{ id: 'remote', name: 'Server', maxTokens: 25 }] })
   } }

@@ -191,7 +191,8 @@ test('WorkBuddy streams DSH tool calls with original names and preserves reasoni
   const config = Config({})
   const adapter = new CodeBuddyAdapter(config, {
     baseURL: 'https://copilot.tencent.com/v2', workbuddy: true, providerName: 'WorkBuddy',
-    authenticate: async () => ({ apiKey: 'oauth-secret', headers: { Authorization: 'Bearer oauth-secret', 'X-User-Id': 'user' } }),
+    authenticate: async () => ({ apiKey: 'oauth-secret', headers: { Authorization: 'Bearer oauth-secret', 'X-User-Id': 'user',
+      'User-Agent': 'WorkBuddy/test', 'X-IDE-Type': 'WorkBuddy', 'X-IDE-Name': 'WorkBuddy' } }),
     fetch: async (_url, init) => {
       captured = { headers: new Headers(init.headers), body: JSON.parse(init.body) }
       response.choices[0].delta.tool_calls[0].function.name = captured.body.tools[0].function.name
@@ -205,6 +206,9 @@ test('WorkBuddy streams DSH tool calls with original names and preserves reasoni
   })) assembler.push(chunk)
   assert.equal(captured.headers.get('authorization'), 'Bearer oauth-secret')
   assert.equal(captured.headers.get('x-api-key'), null)
+  assert.equal(captured.headers.get('user-agent'), 'WorkBuddy/test')
+  assert.equal(captured.headers.get('x-ide-type'), 'WorkBuddy')
+  assert.equal(captured.headers.get('x-ide-name'), 'WorkBuddy')
   assert.equal(captured.body.messages[0].role, 'system')
   assert.equal(captured.body.tools[0].function.parameters.type, 'object')
   assert.equal(assembler.blocks()[0].name, 'fs.read:file')
