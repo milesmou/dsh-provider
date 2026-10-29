@@ -117,7 +117,7 @@ async function clientFixture({ configured = false, writable = true, writeRefused
     slots: {
       inject: (slot, register) => { register() },
       register: (options, card) => {
-        if (options.name === 'settings.models.footer' && options.id === 'workbuddy') { registration = options; component = card }
+        if (options.name === 'dsh-provider.settings.cards' && options.id === 'workbuddy') { registration = options; component = card }
         return () => {}
       },
     },

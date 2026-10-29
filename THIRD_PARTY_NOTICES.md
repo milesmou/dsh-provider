@@ -1,5 +1,7 @@
 # Third-party notices
 
+The Codex terminal mark is from the Codex application's SVG assets, used to identify the Codex provider. Codex is a trademark of OpenAI.
+
 WorkBuddy authentication and request compatibility reference the following MIT-licensed projects. The implementation keeps DSH as the tool executor and does not modify desktop credential files.
 
 - https://github.com/yetone/magpie (d8c70504d66280ebb4477b3b89dd091720d16858)

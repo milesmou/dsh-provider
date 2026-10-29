@@ -24,7 +24,7 @@ github:milesmou/dsh-provider#main
 
 **2. 配置 CodeBuddy 组件**
 
-打开 **设置 → 模型 → WorkBuddy 组件**：
+打开 **设置 → 模型扩展 → WorkBuddy 组件**：
 
 - **WorkBuddy 登录（免 API Key）**：选择国内版或国际版，自动读取可用的本机登录态。若提示凭据已加密或未登录，点击 **浏览器登录**，再打开显示的链接完成授权。浏览器登录保存在 DSH 凭据存储中。
 - **CodeBuddy API Key**：填写访问密钥，点击 **保存密钥**。仅使用 DSH 界面保存的密钥。
@@ -34,7 +34,7 @@ github:milesmou/dsh-provider#main
 
 **3. 配置 Codex 组件**
 
-在运行 DSH 的同一台机器、同一系统用户下，先运行 `codex login`，使用 ChatGPT 账号登录。打开 **设置 → 模型 → Codex 组件**，点击 **刷新登录态和模型**，再在对话模型选择器中选择 Codex 的模型。
+在运行 DSH 的同一台机器、同一系统用户下，先运行 `codex login`，使用 ChatGPT 账号登录。打开 **设置 → 模型扩展 → Codex 组件**，点击 **刷新登录态和模型**，再在对话模型选择器中选择带有 Codex 图标的模型。
 
 - 自动读取 `CODEX_HOME/auth.json`，未设置 `CODEX_HOME` 时读取 `~/.codex/auth.json`。也可在 `dsh-provider-codex` 条目的 `config.codexHome` 指定目录，示例见 [配置文件](examples/cordis.patch.yml)。
 - 需要文件形式的 ChatGPT 登录凭据；若使用系统钥匙串，在 Codex 的 `config.toml` 设置 `cli_auth_credentials_store = "file"` 后重新登录。不读取 API Key。

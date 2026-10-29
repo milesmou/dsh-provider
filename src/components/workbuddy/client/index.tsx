@@ -2,13 +2,12 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-remotes/client'
 import type {} from '@deepseek-ai/dsh-api-settings-controller/remote'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
-import type {} from '@deepseek-ai/dsh-client-ui-settings-models/client'
+import { PROVIDER_CARDS_SLOT } from '../../../client/settings-page.js'
 import { WorkBuddyCard } from './provider-card.js'
 import type { ConnectionActions } from './provider-card.js'
 import type { CredentialActions } from './card.js'
 import { CreditsBadge } from './credits-badge.js'
 import type { SelectionSource } from './credits-badge.js'
-import { ModelNameLabel } from './model-label.js'
 import { API_KEY_REF } from '../credential.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
 
@@ -19,20 +18,6 @@ export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings
 export function apply(ctx: Context): void {
   ctx.inject(['remote.workbuddyProvider'], mountCard)
   ctx.inject(['remote.workbuddyProvider', 'modelDirectories'], mountCredits)
-  mountModelLabel(ctx)
-}
-
-/** Add a small mark before WorkBuddy model names in the composer's model selector. */
-function mountModelLabel(ctx: Context): void {
-  const slots = ctx.slots as unknown as {
-    inject(name: string, callback: () => () => void): void
-    register(options: Record<string, unknown>, component: unknown): () => void
-  }
-  slots.inject('conversation.input.model.label', () => slots.register({
-    // DSH ships its own default label in this single slot at priority 0.
-    // A distinct priority lets our label shadow it without failing this plugin.
-    name: 'conversation.input.model.label', priority: -20,
-  }, ModelNameLabel))
 }
 
 /** Structural slice of the session model-selection service this component reads. */
@@ -116,8 +101,8 @@ function mountCard(ctx: Context): void {
       if (!response.ok) throw new Error('Credential write refused')
     },
   }
-  ctx.slots.inject('settings.models.footer', () => ctx.slots.register({
-    name: 'settings.models.footer', id: 'workbuddy', order: 20,
+  ctx.slots.inject(PROVIDER_CARDS_SLOT, () => ctx.slots.register({
+    name: PROVIDER_CARDS_SLOT, id: 'workbuddy', order: 20,
     inject: () => ({ actions, connection }),
   }, WorkBuddyCard))
 }

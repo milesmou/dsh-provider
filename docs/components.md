@@ -7,6 +7,8 @@ src/
   index.ts                  # Shared browser-loading group and legacy CodeBuddy alias
   config.ts                 # Original namespaced CodeBuddy configuration
   client/index.tsx          # Client component composition
+  client/settings-page.tsx  # Dedicated Model Extensions settings page and card slot
+  client/model-label.tsx    # Shared model label dispatch for provider icons
   remote.ts                 # Package-wide Typert manifest
   components/
     workbuddy/
@@ -34,6 +36,8 @@ To add another Agent, create a sibling under `src/components/`, export its Host 
 CodeBuddy retains the Loader entry id and settings namespace `dsh-provider`, with values under `workbuddy`; its module name is `dsh-provider/components/workbuddy`. This preserves the original account, context-window preferences and credential keys. Codex uses its own Loader id/settings namespace `dsh-provider-codex` and module `dsh-provider/components/codex`. Disabling either component disposes only its own routes and controller. Disabling the bundle disposes both.
 
 DSH's browser-module registry only discovers package-root Loader names, so the bundle also inserts `dsh-provider-client`, an empty group with `name: dsh-provider`. Groups do not appear as provider components in the plugin inventory. This root entry loads the existing shared `./client` bundle once; each settings card still follows the availability of its own Host Remote. When mounted as a group, the package root creates an empty Cordis group; ordinary entries retain the original CodeBuddy compatibility behavior. Keep this root group when adding more subpath components, or the model-settings cards will disappear even though the Host components run.
+
+The shared client mounts one combined Remote contribution for the package. Components must not mount their own contribution with the same package name: DSH rejects duplicate Remote packages. Settings cards register in `dsh-provider.settings.cards`, declared and rendered by the dedicated **模型扩展** page in `settings.section`; they no longer occupy `settings.models.footer`. The shared client also owns the single model-label slot, preserving WorkBuddy's mark and credit multiplier while adding Codex's terminal mark to Codex models in the menu and current-model trigger.
 
 WorkBuddy's chat requests are shaped before they leave the component, following [magpie](https://github.com/yetone/magpie)'s WorkBuddy package: `shaping.ts` rewrites the client identity lines WorkBuddy refuses, moves a refused system prompt into the first user message once, and normalizes the request spellings WorkBuddy's chat endpoint takes; `tool-schema.ts` mends tool schemas (unions, enums, boolean subschemas, tuples, `$ref`) and makes tool names acceptable, mapping the model's calls back to DSH's names. `adapter.ts` applies each repair once per adapter run and remembers it, so later requests go out repaired from the start.
 
