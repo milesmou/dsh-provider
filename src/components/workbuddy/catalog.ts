@@ -58,11 +58,9 @@ function reasoningOf(raw: ObjectValue): Pick<ModelConfig, 'reasoningEfforts' | '
     ...(canDisable ? { canDisableThinking: true } : {}) }
 }
 
-/** The official CLI uses /v3/config; custom OpenAI gateways use /models. */
+/** Both official regions discover their model catalog at /v3/config. */
 export function catalogURL(baseURL: string): string {
-  const url = new URL(baseURL)
-  return ['copilot.tencent.com', 'www.codebuddy.ai'].includes(url.hostname) && url.pathname === '/v2'
-    ? new URL('/v3/config', url).href : baseURL + '/models'
+  return new URL('/v3/config', baseURL).href
 }
 
 export function parseCatalog(value: unknown): ModelConfig[] {

@@ -6,8 +6,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
+        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
         includeUsage: import("@deepseek-ai/schemastery").default<boolean, boolean, "defined">;
     }>>, Schemastery.ObjectT<NoInfer<{
@@ -15,8 +14,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
+        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
         includeUsage: import("@deepseek-ai/schemastery").default<boolean, boolean, "defined">;
     }>>, "plain">;
@@ -26,8 +24,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
+        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
         includeUsage: import("@deepseek-ai/schemastery").default<boolean, boolean, "defined">;
     }>>, Schemastery.ObjectT<NoInfer<{
@@ -35,8 +32,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
+        environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
         includeUsage: import("@deepseek-ai/schemastery").default<boolean, boolean, "defined">;
     }>>, "plain">;

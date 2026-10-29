@@ -7,8 +7,6 @@
       mode: api
       workbuddyRegion: cn
       environment: internal
-      # API-key mode only:
-      # baseURL: https://your-codebuddy-host/v2
       timeoutMs: 180000
       includeUsage: true
       # Models are discovered automatically from the selected account; there is

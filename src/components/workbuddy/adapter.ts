@@ -6,6 +6,7 @@ import {
 } from '@deepseek-ai/dsh-llm'
 import type { ContentBlock, GenerateOptions, ImageBlock, LlmResolvedModelInfo, ModelModality, StreamChunk, TokenUsage } from '@deepseek-ai/dsh-llm'
 import type { ModelConfig, Options } from './config.js'
+import { isOfficialCodeBuddyEndpoint } from './config.js'
 import { toMessages } from './messages.js'
 import type { ImageDataUrls } from './messages.js'
 import type { ModelCatalog } from './catalog.js'
@@ -77,7 +78,7 @@ function usageOf(raw: Record<string, unknown>): TokenUsage {
   }
 }
 
-function failureOf(error: unknown, apiKey: string, aborted: boolean): LlmError {
+function failureOf(error: unknown, apiKey: string, aborted: boolean, providerName: string): LlmError {
   if (error instanceof LlmError) return error
   const message = (error instanceof Error ? error.message : 'Provider request failed').split(apiKey || '\u0000').join('[REDACTED]')
   const status = error instanceof OpenAI.APIError ? error.status : undefined
@@ -90,7 +91,7 @@ function failureOf(error: unknown, apiKey: string, aborted: boolean): LlmError {
     if (data && String(data.code) === '11128' && /unapproved channel/i.test(String(data.msg ?? data.message ?? ''))) {
       const id = error.requestID ?? data.requestId
       const requestId = typeof id === 'string' && /^[A-Za-z0-9_.-]{1,160}$/.test(id) && !id.includes(apiKey) ? id : undefined
-      return new LlmError('WorkBuddy/CodeBuddy 拒绝了当前调用渠道（11128）：当前提示词未通过渠道校验；重复发送不能保证解决。请使用官方客户端，或改用已获授权的 API 接入。', 'CHANNEL_RESTRICTED', {
+      return new LlmError(`${providerName} 请求未通过服务端渠道校验（11128）。请核对账号或密钥所属版本、服务地址及模型权限；若仍失败，请向 CodeBuddy 提供请求 ID 排查。`, 'CHANNEL_RESTRICTED', {
         status, ...(requestId ? { requestId: ProviderRequestId(requestId) } : {}),
       })
     }
@@ -212,12 +213,15 @@ export class CodeBuddyAdapter extends LlmAdapter {
       ...(options.stop?.length ? { stop: options.stop } : {}),
       ...(effort ? { reasoning_effort: effort as NonNullable<ChatCompletionCreateParamsStreaming['reasoning_effort']> } : {}),
     }
-    const prepared = this.connection.workbuddy ? workbuddyRequest(body, options) : undefined
+    // The public API-key gateways apply the same request checks as WorkBuddy.
+    // Keep API-key authentication separate from WorkBuddy sign-in.
+    const prepared = this.connection.workbuddy || isOfficialCodeBuddyEndpoint(this.connection.baseURL)
+      ? workbuddyRequest(body, options) : undefined
     if (prepared) body = prepared.body
     const headers = this.connection.workbuddy
       ? { ...auth.headers, ...clientChatHeaders(), ...(prepared?.headers ?? {}) }
       // The official CLI supplies both headers for API-key authentication.
-      : { 'X-API-Key': apiKey, ...attributionHeaders() }
+      : { 'X-API-Key': apiKey, ...attributionHeaders(), ...(prepared?.headers ?? {}) }
     const post = async (payload: ChatCompletionCreateParamsStreaming) =>
       client.chat.completions.create(payload, { signal: requestSignal, headers })
     // A refused system prompt and a refused reply-after-tools are body
@@ -330,7 +334,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
       yield { type: 'finish', reason: { kind: finish === 'length' ? 'max-tokens' : tools.size || finish === 'tool_calls' ? 'tool-calls' : 'stop' } }
     } catch (error) {
       if (deadline.aborted && !options.signal?.aborted) throw new LlmError('CodeBuddy: request exceeded timeoutMs.', 'TIMEOUT')
-      throw failureOf(error, apiKey, options.signal?.aborted ?? false)
+      throw failureOf(error, apiKey, options.signal?.aborted ?? false, this.connection.providerName ?? 'CodeBuddy API Key')
     } finally {
       if (stream && 'controller' in stream) stream.controller.abort()
     }

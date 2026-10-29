@@ -9,8 +9,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: z<string, string, "defined">;
+        environment: z<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: z<number, number, "defined">;
         includeUsage: z<boolean, boolean, "defined">;
     }>>, Schemastery.ObjectT<NoInfer<{
@@ -18,8 +17,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: z<string, string, "defined">;
+        environment: z<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: z<number, number, "defined">;
         includeUsage: z<boolean, boolean, "defined">;
     }>>, "plain">;
@@ -29,8 +27,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: z<string, string, "defined">;
+        environment: z<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: z<number, number, "defined">;
         includeUsage: z<boolean, boolean, "defined">;
     }>>, Schemastery.ObjectT<NoInfer<{
@@ -38,8 +35,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
         workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
         hiddenModels: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-        environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-        baseURL: z<string, string, "defined">;
+        environment: z<"internal" | "overseas", "internal" | "overseas", "defined">;
         timeoutMs: z<number, number, "defined">;
         includeUsage: z<boolean, boolean, "defined">;
     }>>, "plain">;

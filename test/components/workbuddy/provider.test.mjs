@@ -34,16 +34,20 @@ async function collect(adapter, options = {}) {
   return { chunks, blocks: assembler.blocks(), usage: assembler.usage, finish: assembler.finish }
 }
 
-test('Codeg region defaults and custom endpoint precedence', () => {
+test('only fixed official region endpoints are selectable and old URL overrides have no effect', () => {
+  assert.equal(Config.dict.baseURL, undefined)
   assert.equal(resolveBaseURL(config(), () => undefined), 'https://copilot.tencent.com/v2')
   assert.equal(resolveBaseURL(config({ environment: 'overseas' }), () => undefined), 'https://www.codebuddy.ai/v2')
-  const env = { CODEBUDDY_BASE_URL: 'https://gateway.example/v1/chat/completions/', CODEBUDDY_INTERNET_ENVIRONMENT: 'ioa' }
-  assert.equal(resolveBaseURL(config(), key => env[key]), 'https://gateway.example/v1')
-  assert.equal(resolveBaseURL(config({ baseURL: 'https://custom.example' }), () => undefined), 'https://custom.example/v2')
-  for (const baseURL of ['file:///tmp/test', 'https://user:password@example.com', 'https://host/v2?key=secret']) {
-    assert.throws(() => resolveBaseURL(config({ baseURL }), () => undefined))
+  for (const baseURL of ['https://custom.example/v2', 'file:///tmp/test', 'https://user:password@example.com', 'https://host/v2?key=secret']) {
+    const parsed = config({ baseURL })
+    const reads = []
+    assert.equal(resolveBaseURL(parsed, key => { reads.push(key); return key === 'CODEBUDDY_BASE_URL' ? baseURL : undefined }),
+      'https://copilot.tencent.com/v2')
+    assert.deepEqual(reads, ['CODEBUDDY_INTERNET_ENVIRONMENT'])
   }
-  assert.throws(() => resolveBaseURL(config({ environment: 'ioa' }), () => undefined), /iOA/)
+  assert.equal(resolveBaseURL(config(), key => key === 'CODEBUDDY_INTERNET_ENVIRONMENT' ? 'overseas' : undefined), 'https://www.codebuddy.ai/v2')
+  assert.throws(() => config({ environment: 'ioa' }))
+  assert.throws(() => resolveBaseURL(config(), () => 'ioa'), /only the official/)
 })
 
 test('wire request and fragmented UTF-8 stream preserve text, reasoning, attribution and cache usage', async t => {
@@ -72,6 +76,37 @@ test('wire request and fragmented UTF-8 stream preserve text, reasoning, attribu
   assert.deepEqual(result.blocks, [{ type: 'reasoning', text: '想一想' }, { type: 'text', text: '你好' }])
   assert.deepEqual(result.usage, { inputTokens: 40, outputTokens: 20, cacheReadTokens: 60, totalTokens: 120 })
   assert.equal(result.chunks.at(-1).type, 'finish')
+})
+
+test('official API-key gateways accept DSH identity requests without changing API-key authentication', async () => {
+  for (const baseURL of ['https://copilot.tencent.com/v2', 'https://www.codebuddy.ai/v2']) {
+    const requests = []
+    const adapter = new CodeBuddyAdapter(config(), {
+      baseURL, resolveApiKey: async () => 'ck_test-only-secret',
+      fetch: async (url, init) => {
+        const request = new Request(url, init)
+        const body = await request.json()
+        requests.push({ request, body })
+        // Reproduce the real gateway rejection observed for this model with a valid API key.
+        if (body.messages.some(message => /powered by DeepSeek Harness/.test(message.content))) {
+          return new Response(JSON.stringify({ code: 11128, msg: 'Illegal API invocation from an unapproved channel' }),
+            { status: 400, headers: { 'content-type': 'application/json' } })
+        }
+        return new Response(sse(chunk({ content: 'ok' }, 'stop')), { headers: { 'content-type': 'text/event-stream' } })
+      },
+    })
+    const result = await collect(adapter, { model: 'deepseek-v4.1-flash', system: 'You are an AI agent powered by DeepSeek Harness.' })
+    assert.equal(result.finish.kind, 'stop')
+    assert.equal(requests.length, 1)
+    const { request: sent, body } = requests[0]
+    assert.equal(sent.url, baseURL + '/chat/completions')
+    assert.equal(sent.headers.get('authorization'), 'Bearer ck_test-only-secret')
+    assert.equal(sent.headers.get('x-api-key'), 'ck_test-only-secret')
+    assert.equal(sent.headers.get('user-agent'), attributionHeaders()['user-agent'])
+    assert.match(sent.headers.get('x-conversation-request-id'), /^[0-9a-f]{32}$/)
+    assert.equal(body.messages[0].content, 'You are an AI agent that helps the user with programming tasks.')
+    assert.equal(body.model, 'deepseek-v4.1-flash')
+  }
 })
 
 test('interleaved tool argument fragments and delayed IDs retain exact raw JSON', async t => {
@@ -146,6 +181,7 @@ test('channel verification rejection is actionable, preserves request ID, and ne
       assert.equal(error.failure.status, 400)
       assert.equal(error.failure.requestId, 'provider-request-123')
       assert.match(error.message, /渠道校验/)
+      assert.doesNotMatch(error.message, /当前提示词|改用.*API/)
       assert.ok(!error.message.includes('private server detail'))
       assert.ok(!error.message.includes('ck_test-only-secret'))
       assert.equal(error.failure.providerRetryAfterMs, undefined)

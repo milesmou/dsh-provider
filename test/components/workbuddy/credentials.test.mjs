@@ -1,4 +1,4 @@
-import '../../../harness-setup.mjs'
+import { mockCodeBuddyGateway } from '../../../harness-setup.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -26,7 +26,7 @@ test('saved credential changes reach the next model request without a plugin res
   const headers = []
   const server = createServer((request, response) => {
     // Record only the chat calls under test; the always-on catalog discovery
-    // hits /models and is not part of this assertion.
+    // hits /v3/config and is not part of this assertion.
     if ((request.url ?? '').endsWith('/chat/completions')) headers.push(request.headers.authorization)
     response.writeHead(200, { 'content-type': 'text/event-stream' })
     response.end('data: ' + JSON.stringify({ choices: [{ index: 0, delta: { content: 'ok' }, finish_reason: 'stop' }] }) + '\n\ndata: [DONE]\n\n')
@@ -34,6 +34,7 @@ test('saved credential changes reach the next model request without a plugin res
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   t.after(() => { server.closeAllConnections(); server.close() })
+  mockCodeBuddyGateway(t, `http://127.0.0.1:${server.address().port}`)
   const ctx = new Context()
   const keys = new Map([['DSH_PROVIDER_WORKBUDDY_API_KEY', 'ck_first']])
   let fallbackSource = 'env'
@@ -46,7 +47,7 @@ test('saved credential changes reach the next model request without a plugin res
   } })
   ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { DSH_PROVIDER_WORKBUDDY_API_KEY: 'ck_stale_ambient' } }]))
   const runtime = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(host, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` } })
+  const fiber = ctx.plugin(host, { workbuddy: {} })
   await runtime.await()
   await fiber.await()
   const uid = fiber.uid

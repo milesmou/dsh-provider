@@ -1,4 +1,4 @@
-import '../../../harness-setup.mjs'
+import { mockCodeBuddyGateway } from '../../../harness-setup.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -10,10 +10,9 @@ import { CodeBuddyAdapter } from '../../../lib/components/workbuddy/adapter.js'
 import { Config } from '../../../lib/components/workbuddy/config.js'
 import * as plugin from '../../../lib/index.js'
 
-test('official config and custom gateway catalog paths keep credentials on their own host', () => {
+test('official catalog paths stay on their selected regional host', () => {
   assert.equal(catalogURL('https://copilot.tencent.com/v2'), 'https://copilot.tencent.com/v3/config')
   assert.equal(catalogURL('https://www.codebuddy.ai/v2'), 'https://www.codebuddy.ai/v3/config')
-  assert.equal(catalogURL('https://private.example/api/v1'), 'https://private.example/api/v1/models')
 })
 
 test('catalog selects CLI chat models, maps capacity, and rejects refused or empty replies', () => {
@@ -126,7 +125,7 @@ test('startup refresh deduplicates calls; elapsed time and selector reads never 
   let calls = 0, changed = 0, refuse = false
   const connection = { baseURL: 'https://gateway.example/v2', resolveApiKey: async () => 'ck_fake', fetch: async (url, options) => {
     calls++
-    assert.equal(url, 'https://gateway.example/v2/models')
+    assert.equal(url, 'https://gateway.example/v3/config')
     assert.equal(options.headers['X-API-Key'], 'ck_fake')
     assert.equal(options.redirect, 'error')
     return refuse ? new Response('unavailable', { status: 503 }) : Response.json({ data: [{ id: 'remote', name: 'Server', maxTokens: 25 }] })
@@ -181,18 +180,19 @@ test('DSH startup, credential save, and disposal update the real model registry'
   let model = 'first', calls = 0
   const server = createServer((request, response) => {
     calls++
-    assert.equal(request.url, '/v2/models')
+    assert.equal(request.url, '/v3/config')
     response.setHeader('content-type', 'application/json')
     response.end(JSON.stringify({ data: [{ id: model }] }))
   })
   server.listen(0, '127.0.0.1')
   await once(server, 'listening')
   t.after(() => { server.closeAllConnections(); server.close() })
+  mockCodeBuddyGateway(t, `http://127.0.0.1:${server.address().port}`)
   const ctx = new Context()
   const runtime = ctx.plugin(LlmRuntime)
   await runtime.await()
   const interval = t.mock.method(globalThis, 'setInterval')
-  const fiber = ctx.plugin(plugin, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` } })
+  const fiber = ctx.plugin(plugin, { workbuddy: {} })
   await fiber.await()
   t.after(() => ctx.fiber.dispose())
   assert.deepEqual((await ctx.llm.listModels('workbuddy')).map(model => model.id), ['auto'])

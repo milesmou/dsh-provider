@@ -1,4 +1,4 @@
-import '../harness-setup.mjs'
+import { mockCodeBuddyGateway } from '../harness-setup.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises'
@@ -27,9 +27,10 @@ test('each component persists hidden models independently while live updates ret
   ] })))
   server.listen(0, '127.0.0.1'); await once(server, 'listening')
   t.after(() => { server.closeAllConnections(); server.close() })
+  mockCodeBuddyGateway(t, `http://127.0.0.1:${server.address().port}`)
   const entries = composeEntries([loadOverlayPatches('dsh', fileURLToPath(new URL('../cordis.patch.yml', import.meta.url)))])
     .map(row => row.group ? row : { ...row, config: row.id === 'dsh-provider'
-      ? { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2`, hiddenModels: ['not-in-catalog'] } }
+      ? { workbuddy: { hiddenModels: ['not-in-catalog'] } }
       : { codexHome: home } })
   const mount = async rows => {
     const ctx = new Context()

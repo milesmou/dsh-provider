@@ -48,8 +48,7 @@ export interface ModelConfig {
     credits?: string;
 }
 export interface Options {
-    environment: 'internal' | 'overseas' | 'ioa';
-    baseURL: string;
+    environment: 'internal' | 'overseas';
     timeoutMs: number;
     includeUsage: boolean;
 }
@@ -58,8 +57,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
     contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
     hiddenModels: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-    environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-    baseURL: z<string, string, "defined">;
+    environment: z<"internal" | "overseas", "internal" | "overseas", "defined">;
     timeoutMs: z<number, number, "defined">;
     includeUsage: z<boolean, boolean, "defined">;
 }>>, Schemastery.ObjectT<NoInfer<{
@@ -67,8 +65,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
     workbuddyRegion: z<"cn" | "intl", "cn" | "intl", "volatile-defined">;
     contextWindow: z<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
     hiddenModels: z<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
-    environment: z<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
-    baseURL: z<string, string, "defined">;
+    environment: z<"internal" | "overseas", "internal" | "overseas", "defined">;
     timeoutMs: z<number, number, "defined">;
     includeUsage: z<boolean, boolean, "defined">;
 }>>, "plain">;
@@ -79,5 +76,7 @@ export declare const Config: z<Schemastery.ObjectS<NoInfer<{
  */
 export declare function baselineModels(mode: Mode, region: WorkBuddyRegion): ModelConfig[];
 export type ReadEnvironment = (name: string) => string | undefined;
-/** Custom URL wins over region, matching Codeg's self-hosted selection. */
+/** Public CodeBuddy model gateways. Other URLs are only used by injected test transports. */
+export declare function isOfficialCodeBuddyEndpoint(baseURL: string): boolean;
+/** API-key access is restricted to CodeBuddy's fixed public regional endpoints. */
 export declare function resolveBaseURL(config: Options, read: ReadEnvironment): string;

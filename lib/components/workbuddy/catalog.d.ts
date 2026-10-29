@@ -9,7 +9,7 @@ interface CatalogConnection {
     catalogURL?: string;
     fetch?: typeof fetch;
 }
-/** The official CLI uses /v3/config; custom OpenAI gateways use /models. */
+/** Both official regions discover their model catalog at /v3/config. */
 export declare function catalogURL(baseURL: string): string;
 export declare function parseCatalog(value: unknown): ModelConfig[];
 /** Cache the last successful catalog; a failed refresh never empties the selector. */
