@@ -29,10 +29,6 @@ export function apply(ctx: Context): void {
 
 function ModelExtensionsPage({ renderSlot }: PropsRenderSlots<typeof PROVIDER_CARDS_SLOT>) {
   return <div>
-    <h2 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 600 }}>模型扩展</h2>
-    <p style={{ margin: '0 0 24px', fontSize: 13, lineHeight: 1.7, opacity: 0.7 }}>
-      管理 WorkBuddy 和 Codex 的接入方式、登录状态与模型。
-    </p>
     {renderSlot(PROVIDER_CARDS_SLOT, {})}
   </div>
 }

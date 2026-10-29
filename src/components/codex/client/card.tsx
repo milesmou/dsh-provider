@@ -34,7 +34,6 @@ export function CodexCard({ actions, modelActions }: { actions: CodexActions; mo
     <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, opacity: 0.8 }}>
       使用本机 Codex 登录，无需 API Key。
       {!status?.configured ? <>运行 <code>codex login</code> 后刷新。</> : null}
-      {status ? <>已加载 {status.models} 个模型。</> : null}
     </p>
     <div><button type="button" disabled={busy} onClick={() => { void refresh() }} style={{ font: 'inherit', color: 'inherit',
       background: 'transparent', border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}>

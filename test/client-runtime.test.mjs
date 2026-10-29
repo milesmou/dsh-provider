@@ -55,7 +55,6 @@ test('the dedicated settings page and model labels share one Remote and survive 
     const pageMarkup = renderToStaticMarkup(createElement(page.component, {
       renderSlot: key => ctx.slots.entries(key).map(entry => createElement(entry.component, { key: entry.options.id, ...entry.inject() })),
     }))
-    assert.match(pageMarkup, /模型扩展/)
     assert.match(pageMarkup, /<strong>WorkBuddy<\/strong>/)
     assert.match(pageMarkup, /<strong>Codex<\/strong>/)
     assert.ok(ctx.typert.remotes.get('workbuddyProvider/command'))
