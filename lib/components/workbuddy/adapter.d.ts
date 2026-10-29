@@ -21,7 +21,7 @@ export interface Connection {
      * Report one request's exact credit charge (from the completion's `usage`)
      * to the session ledger. Absent when the deployment does not surface credits.
      */
-    recordCredit?: (sessionId: string | undefined, credit: number) => void;
+    recordCredit?: (sessionId: string | undefined, credit: number, apiKey: string) => void;
     fetch?: typeof fetch;
     catalog?: ModelCatalog;
     /** Built-in model shown before/without a catalog result; never user-configured. */

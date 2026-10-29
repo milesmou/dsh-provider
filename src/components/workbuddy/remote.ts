@@ -18,6 +18,10 @@ const Credits = z.object({
   accountTotal: z.number().optional(),
   unit: z.string().optional(),
   plan: z.string().optional(),
+  mode: z.enum(['api', 'workbuddy']).optional(),
+  updatedAt: z.number().optional(),
+  stale: z.boolean().optional(),
+  issue: z.string().optional(),
 })
 export type CreditsReply = z.infer<typeof Credits>
 const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,

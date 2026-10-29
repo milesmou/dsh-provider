@@ -9,6 +9,7 @@ import type { CreditLedger, SessionBalance } from './credits.js'
 import type { ModelCatalog } from './catalog.js'
 import { modelDirectory } from '../../model-management.js'
 import type { ModelDirectoryReply } from '../../model-management.js'
+import type { ApiCredits } from './api-credits.js'
 
 export class WorkBuddyController extends TypertRemoteService {
   /** One fetch of the account balance per session; later reads project from it. */
@@ -19,6 +20,7 @@ export class WorkBuddyController extends TypertRemoteService {
     ledger: CreditLedger
     enabled(): boolean
     catalog?(): ModelCatalog | undefined
+    apiCredits?(): Pick<ApiCredits, 'read'> | undefined
   }) {
     super(ctx, 'workbuddyProvider')
   }
@@ -55,12 +57,12 @@ export class WorkBuddyController extends TypertRemoteService {
    * the ledger, plus the account remaining balance. The balance is fetched from
    * the billing meter only once per session; afterwards it is projected locally
    * by subtracting the session's later spend. `refresh` forces a fresh fetch
-   * (the manual refresh button). Disabled in API-key mode; a failed balance read
+   * (the manual refresh button). API-key mode uses its account-shared cache; a failed balance read
    * leaves `accountRemain` off rather than failing the whole read.
    */
   @Remote
   async credits(sessionId: string, refresh: boolean): Promise<CreditsReply> {
-    if (!this.options.enabled()) return { enabled: false }
+    if (!this.options.enabled()) return this.options.apiCredits?.()?.read(sessionId, refresh) ?? { enabled: false }
     const sessionUsed = this.options.ledger.of(sessionId)
     let balance = this.balances.get(sessionId)
     if (!balance || refresh === true) {

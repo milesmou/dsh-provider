@@ -138,6 +138,42 @@ test('the dedicated settings page and model labels share one Remote and survive 
     } finally { if (badge) await act(async () => badge.unmount()) }
     assert.equal(listeners.size, 0)
 
+    const creditsEntry = ctx.slots.entries('conversation.session.header.utilities').find(entry => entry.options.id === 'workbuddy-credits')
+    const creditListeners = new Set()
+    let creditProvider = 'workbuddy'
+    let creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 0.03, accountRemain: 79.97, updatedAt: 1234 })
+    const creditProps = { sessionId: 'one', selection: () => ({
+      getSnapshot: () => ({ current: { provider: creditProvider } }),
+      subscribe: listener => { creditListeners.add(listener); return () => creditListeners.delete(listener) },
+    }), credits: async () => creditLoad() }
+    let creditBadge
+    try {
+      await act(async () => { creditBadge = create(createElement(creditsEntry.component, creditProps)) })
+      assert.match(JSON.stringify(creditBadge.toJSON()), /本会话消耗：0.03/)
+      assert.match(JSON.stringify(creditBadge.toJSON()), /剩余 79.97/)
+      assert.equal(creditBadge.root.findByProps({ 'aria-label': 'CodeBuddy API 积分' }).props.title.includes('更新时间'), true)
+      creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 0.03, accountRemain: 79.97, stale: true, issue: '余额更新失败' })
+      await act(async () => { creditBadge.root.findByProps({ 'aria-label': '刷新余额' }).props.onClick({ stopPropagation() {} }) })
+      assert.match(JSON.stringify(creditBadge.toJSON()), /（缓存）/)
+      creditLoad = async () => ({ enabled: true, mode: 'api', issue: '请保存有效密钥' })
+      await act(async () => { creditBadge.root.findByProps({ 'aria-label': '刷新余额' }).props.onClick({ stopPropagation() {} }) })
+      assert.match(JSON.stringify(creditBadge.toJSON()), /本会话消耗：—/)
+      assert.match(JSON.stringify(creditBadge.toJSON()), /剩余不可用/)
+      let finishCredits
+      creditLoad = () => new Promise(resolve => { finishCredits = resolve })
+      await act(async () => { creditBadge.root.findByProps({ 'aria-label': '刷新余额' }).props.onClick({ stopPropagation() {} }) })
+      creditProvider = 'codex'
+      await act(async () => { creditListeners.forEach(listener => listener()) })
+      assert.equal(creditBadge.toJSON(), null)
+      creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 0, accountRemain: 22 })
+      creditProvider = 'workbuddy'
+      await act(async () => { creditListeners.forEach(listener => listener()) })
+      await act(async () => { finishCredits({ enabled: true, mode: 'api', sessionUsed: 99, accountRemain: 1 }) })
+      assert.match(JSON.stringify(creditBadge.toJSON()), /剩余 22/)
+      assert.doesNotMatch(JSON.stringify(creditBadge.toJSON()), /本会话消耗：99/)
+    } finally { if (creditBadge) await act(async () => creditBadge.unmount()) }
+    assert.equal(creditListeners.size, 0)
+
     const workbuddyRuntime = [...ctx.registry.values()].find(runtime => runtime.name === 'workbuddy-component-settings')
     await [...workbuddyRuntime.fibers][0].dispose()
     assert.deepEqual(ctx.slots.entries(cardsSlot).map(entry => entry.options.id), ['codex'])

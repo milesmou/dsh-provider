@@ -17,6 +17,7 @@ import { WorkBuddySession, SITES } from './session.js'
 import type { WorkBuddyRegion } from './session.js'
 import { CreditLedger } from './credits.js'
 import { WorkBuddyController } from './controller.js'
+import { ApiCredits } from './api-credits.js'
 
 export { Config } from './config.js'
 export type { Options, ModelConfig, Mode } from './config.js'
@@ -64,6 +65,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
   const ledgerFile = join(resolveDshHome(), 'storages', 'dsh-provider-credits.json')
   const ledger = new CreditLedger(ledgerFile)
   let catalog: ModelCatalog | undefined
+  let apiCredits: ApiCredits | undefined
   let adapter: CodeBuddyAdapter
   let selection = ''
   const session = () => {
@@ -80,6 +82,8 @@ export function apply(ctx: Context, config: PluginConfig): void {
   function rebuild() {
     for (const value of sessions.values()) value.cancelLogin()
     catalog?.dispose()
+    apiCredits?.dispose()
+    apiCredits = undefined
     selection = mode.get() + ':' + workbuddyRegion.get()
     const resolveImage = imageResolver(ctx)
     let connection: Connection & { catalogURL?: string }
@@ -102,6 +106,9 @@ export function apply(ctx: Context, config: PluginConfig): void {
           return assertUsableApiKey(raw, 'dsh-provider', ref)
         },
       }
+      const credits = new ApiCredits(ledger, { baseURL: connection.baseURL, resolveApiKey: connection.resolveApiKey! })
+      apiCredits = credits
+      connection.recordCredit = (sessionId, credit, apiKey) => credits.record(sessionId, credit, apiKey)
     }
     const models = baselineModels(mode.get(), workbuddyRegion.get())
     connection.fallback = models
@@ -112,13 +119,17 @@ export function apply(ctx: Context, config: PluginConfig): void {
   }
   rebuild()
   ctx.llm.registerAdapter([MODEL_ROUTE], new SwitchingAdapter(() => adapter))
-  ctx.plugin(WorkBuddyController, { session, ledger, catalog: () => catalog, enabled: () => mode.get() === 'workbuddy' })
+  ctx.plugin(WorkBuddyController, { session, ledger, catalog: () => catalog, enabled: () => mode.get() === 'workbuddy',
+    apiCredits: () => apiCredits })
   ctx.on('loader/volatile-update', paths => {
     if (paths.some(path => path.at(-1) === 'hiddenModels')) ctx.emit('llm/adapters-updated')
   })
-  ctx.inject(['credentials'], () => { catalog?.credentialsChanged() })
+  ctx.inject(['credentials'], child => {
+    catalog?.credentialsChanged()
+    child.effect(() => () => apiCredits?.invalidate())
+  })
   ctx.on('credentials/reference-updated', updated => {
-    if (updated === ref && mode.get() === 'api') catalog?.credentialsChanged()
+    if (updated === ref && mode.get() === 'api') { apiCredits?.invalidate(); catalog?.credentialsChanged() }
   })
   ctx.on('settings/document-updated', ns => {
     if (ns !== SETTINGS_NAMESPACE) return
@@ -127,6 +138,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
   })
   ctx.effect(() => () => {
     catalog?.dispose()
+    apiCredits?.dispose()
     for (const value of sessions.values()) value.dispose()
     void ledger.persist()
   })

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { SelectionSource } from '../../../client/session-selection.js'
 export type { SelectionSource } from '../../../client/session-selection.js'
@@ -11,6 +11,10 @@ export interface CreditsView {
   accountTotal?: number
   unit?: string
   plan?: string
+  mode?: 'api' | 'workbuddy'
+  updatedAt?: number
+  stale?: boolean
+  issue?: string
 }
 
 /** The provider the WorkBuddy component owns; the badge shows only for it. */
@@ -56,21 +60,26 @@ const refreshButton: CSSProperties = {
  */
 export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProps) {
   const [view, setView] = useState<CreditsView>()
-  const [provider, setProvider] = useState<string | null | undefined>(undefined)
+  const [selected, setSelected] = useState<{ sessionId?: string; provider?: string | null; revision?: number }>({})
+  const provider = selected.sessionId === sessionId ? selected.provider : undefined
+  const selectionRevision = selected.sessionId === sessionId ? selected.revision : undefined
   const [refreshing, setRefreshing] = useState(false)
+  const generation = useRef(0)
+  const requestSequence = useRef(0)
 
   useEffect(() => {
+    setSelected({})
     if (!sessionId) return
     let source: SelectionSource | undefined
     try { source = selection?.(sessionId) } catch { source = undefined }
-    if (!source) { setProvider(undefined); return }
+    if (!source) return
     let live = true
     const store = source
     const read = () => {
       if (!live) return
       let current
       try { current = store.getSnapshot()?.current } catch { current = undefined }
-      setProvider(current?.provider ?? null)
+      setSelected(previous => ({ sessionId, provider: current?.provider ?? null, revision: (previous.revision ?? 0) + 1 }))
     }
     read()
     let unsubscribe = () => {}
@@ -78,55 +87,59 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
     return () => { live = false; unsubscribe() }
   }, [sessionId, selection])
 
-  useEffect(() => {
-    if (!sessionId || provider !== WORKBUDDY_PROVIDER) {
-      setView(undefined)
-      return
+  const readCredits = useCallback(async (force: boolean) => {
+    if (!sessionId) return
+    const current = generation.current
+    const request = ++requestSequence.current
+    try {
+      const next = await credits(sessionId, force)
+      if (generation.current === current && requestSequence.current === request) setView(next)
+      return next
+    } catch {
+      if (generation.current === current && requestSequence.current === request) setView(previous => ({ enabled: true, mode: previous?.mode,
+        issue: '积分读取失败，请稍后刷新。' }))
     }
-    let live = true
+  }, [sessionId, credits])
+
+  useEffect(() => {
+    const current = ++generation.current
+    setView(undefined)
+    setRefreshing(false)
+    if (!sessionId || provider !== WORKBUDDY_PROVIDER) return
     let timer: ReturnType<typeof setTimeout>
     const tick = async () => {
-      try {
-        const next = await credits(sessionId, false)
-        if (live) setView(next)
-      } catch {
-        // Keep the last known figures on a transient failure.
-      } finally {
-        if (live) timer = setTimeout(() => { void tick() }, REFRESH_MS)
-      }
+      const next = await readCredits(false)
+      if (generation.current === current) timer = setTimeout(() => { void tick() }, next?.mode === 'api' ? 60000 : REFRESH_MS)
     }
     void tick()
-    return () => { live = false; clearTimeout(timer) }
-  }, [sessionId, credits, provider])
+    return () => { ++generation.current; clearTimeout(timer) }
+  }, [sessionId, readCredits, provider, selectionRevision])
 
   // Manual re-fetch of the account balance (the once-per-session snapshot).
   const refresh = async () => {
     if (!sessionId || refreshing) return
+    const current = generation.current
     setRefreshing(true)
-    try {
-      const next = await credits(sessionId, true)
-      setView(next)
-    } catch {
-      // Keep the last known figures when a manual refresh fails.
-    } finally {
-      setRefreshing(false)
-    }
+    try { await readCredits(true) }
+    finally { if (generation.current === current) setRefreshing(false) }
   }
 
   if (!view?.enabled || provider !== WORKBUDDY_PROVIDER) return null
 
-  const used = fmt(view.sessionUsed ?? 0)
+  const used = fmt(view.sessionUsed)
   const remain = view.accountRemain === undefined ? undefined : fmt(view.accountRemain)
   const title = [
     `本会话消耗：${used} ${view.unit ?? '积分'}`,
     remain === undefined ? undefined : `账号剩余：${remain} ${view.unit ?? '积分'}`,
     view.accountTotal === undefined ? undefined : `总额度：${fmt(view.accountTotal)} ${view.unit ?? '积分'}`,
     view.plan ? `套餐：${view.plan}` : undefined,
+    view.updatedAt === undefined ? undefined : `更新时间：${new Date(view.updatedAt).toLocaleString()}`,
+    view.issue,
   ].filter(Boolean).join('\n')
 
-  return <span title={title} style={wrap} aria-label="WorkBuddy 积分">
+  return <span title={title} style={wrap} aria-label={view.mode === 'api' ? 'CodeBuddy API 积分' : 'WorkBuddy 积分'}>
     <span>本会话 {used}</span>
-    {remain === undefined ? null : <span style={{ opacity: 0.75 }}>· 剩余 {remain}</span>}
+    <span style={{ opacity: 0.75 }}>· {remain === undefined ? '剩余不可用' : `剩余 ${remain}`}{view.stale ? '（缓存）' : ''}</span>
     <button type="button" onClick={event => { event.stopPropagation(); void refresh() }}
       disabled={refreshing} aria-label="刷新余额" title="刷新余额"
       style={{ ...refreshButton, opacity: refreshing ? 0.35 : refreshButton.opacity }}>

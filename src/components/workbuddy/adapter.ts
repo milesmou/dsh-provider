@@ -32,7 +32,7 @@ export interface Connection {
    * Report one request's exact credit charge (from the completion's `usage`)
    * to the session ledger. Absent when the deployment does not surface credits.
    */
-  recordCredit?: (sessionId: string | undefined, credit: number) => void
+  recordCredit?: (sessionId: string | undefined, credit: number, apiKey: string) => void
   fetch?: typeof fetch
   catalog?: ModelCatalog
   /** Built-in model shown before/without a catalog result; never user-configured. */
@@ -330,7 +330,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
         yield { type: 'block-end', index: state.index, block }
       }
       if (usage) yield { type: 'usage', usage }
-      if (credit !== undefined) this.connection.recordCredit?.(options.sessionId ? String(options.sessionId) : undefined, credit)
+      if (credit !== undefined) this.connection.recordCredit?.(options.sessionId ? String(options.sessionId) : undefined, credit, apiKey)
       if (finish === 'content_filter') throw new LlmError('CodeBuddy: provider filtered this response.', 'CONTENT_FILTER')
       yield { type: 'finish', reason: { kind: finish === 'length' ? 'max-tokens' : tools.size || finish === 'tool_calls' ? 'tool-calls' : 'stop' } }
     } catch (error) {

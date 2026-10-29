@@ -27,6 +27,13 @@ declare const Credits: z.ZodObject<{
     accountTotal: z.ZodOptional<z.ZodNumber>;
     unit: z.ZodOptional<z.ZodString>;
     plan: z.ZodOptional<z.ZodString>;
+    mode: z.ZodOptional<z.ZodEnum<{
+        workbuddy: "workbuddy";
+        api: "api";
+    }>>;
+    updatedAt: z.ZodOptional<z.ZodNumber>;
+    stale: z.ZodOptional<z.ZodBoolean>;
+    issue: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export type CreditsReply = z.infer<typeof Credits>;
 export declare const REMOTE: import("@deepseek-ai/dsh-typert-protocol").TypertRemoteInfo<Readonly<Record<string, import("@deepseek-ai/dsh-typert-protocol").TypertRemoteMethod<object, unknown, "unary", never, unknown> | import("@deepseek-ai/dsh-typert-protocol").TypertRemoteMethod<object, unknown, "stream", unknown, unknown>>>>;
