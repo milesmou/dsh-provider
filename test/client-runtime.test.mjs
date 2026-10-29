@@ -20,7 +20,7 @@ async function loadBrowserBundle(file) {
 const provider = await loadBrowserBundle(new URL('../lib/client.js', import.meta.url))
 const renderer = await loadBrowserBundle(new URL('../node_modules/@deepseek-ai/dsh-client-ui-renderer/lib/client.js', import.meta.url))
 
-test('both model settings cards survive the built-in model label in the real Client runtime', async () => {
+for (const preMounted of [false, true]) test(`both cards survive the built-in label with settings pre-mounted: ${preMounted}`, async () => {
   const ctx = new Context()
   try {
     ctx.provide('typert', { remotes: { register: () => () => {} } })
@@ -36,12 +36,14 @@ test('both model settings cards survive the built-in model label in the real Cli
     const builtIn = () => null
     ctx.slots.register({ name: 'conversation.input.model.label' }, builtIn)
     await ctx.plugin(gateway).await()
-    await ctx.remote.$mount(SETTINGS)
+    if (preMounted) await ctx.remote.$mount(SETTINGS)
     await ctx.plugin(provider).await()
     await new Promise(setImmediate)
 
     const cards = ctx.slots.entries('settings.models.footer')
     assert.deepEqual(cards.map(entry => entry.options.id).sort(), ['codex', 'workbuddy'])
+    assert.equal(typeof ctx.remote.settings.describe, 'function')
+    assert.equal(typeof ctx.remote.credentials.set, 'function')
     const workbuddy = cards.find(entry => entry.options.id === 'workbuddy')
     const markup = renderToStaticMarkup(createElement(workbuddy.component, workbuddy.inject()))
     assert.match(markup, /WorkBuddy 组件/)

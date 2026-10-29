@@ -87,7 +87,7 @@ async function clientFixture({ configured = false, writable = true, writeRefused
     effect: () => {},
     plugin: plugin => { mounts.push(plugin.apply(ctx)) },
     inject: (services, callback) => { callback(ctx) },
-    get: () => undefined,
+    get: name => name === 'remote.credentials' ? ctx.remote.credentials : name === 'remote.settings' ? ctx.remote.settings : undefined,
     remote: {
       $mount: async () => () => {},
       settings: {
