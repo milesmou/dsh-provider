@@ -26,9 +26,9 @@ export function CodexCard({ actions, modelActions }: { actions: CodexActions; mo
     finally { setBusy(false) }
   }
 
-  return <section aria-label="Codex 组件" style={{ borderTop: '1px solid color-mix(in srgb, currentColor 20%, transparent)', marginTop: 24, paddingTop: 20, display: 'grid', gap: 12 }}>
+  return <section aria-label="Codex" style={{ borderTop: '1px solid color-mix(in srgb, currentColor 20%, transparent)', marginTop: 24, paddingTop: 20, display: 'grid', gap: 12 }}>
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-      <strong>Codex 组件</strong>
+      <strong>Codex</strong>
       <span style={{ fontSize: 12, opacity: 0.7 }}>{!status ? '读取中…' : status.configured ? '已读取本机登录态' : '未登录'}</span>
     </div>
     <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, opacity: 0.8 }}>

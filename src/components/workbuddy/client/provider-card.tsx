@@ -103,8 +103,8 @@ export function WorkBuddyCard({ actions, connection, modelActions }: {
     finally { setBusy(false) }
   }
   const mode = state?.mode ?? 'api'
-  return <section aria-label="WorkBuddy 组件设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
-    <strong>WorkBuddy 组件</strong>
+  return <section aria-label="WorkBuddy 设置" style={{ marginTop: 20, display: 'grid', gap: 12 }}>
+    <strong>WorkBuddy</strong>
     <label style={label}>接入方式 <select style={selectControl} aria-label="WorkBuddy 接入方式" value={mode} disabled={!state?.writable || busy}
       onChange={event => { void select(event.target.value as Mode, state?.region ?? 'cn') }}>
       <option style={selectColors} value="api">CodeBuddy API Key</option><option style={selectColors} value="workbuddy">WorkBuddy 登录（免 API Key）</option>

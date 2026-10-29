@@ -39,7 +39,7 @@ test('Codex settings uses the shared package Remote and exposes only status and 
   await actions.command('refresh')
   assert.deepEqual(calls, ['status', 'refresh'])
   const markup = renderToStaticMarkup(createElement(component, { actions }))
-  assert.match(markup, /Codex 组件/)
+  assert.match(markup, /<strong>Codex<\/strong>/)
   assert.match(markup, /codex login/)
   assert.match(markup, /刷新登录态和模型/)
   assert.ok(!markup.includes('type="password"'))
