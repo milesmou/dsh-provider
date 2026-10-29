@@ -11,11 +11,15 @@ import type { ChatCompletionContentPart, ChatCompletionMessageParam } from 'open
  */
 export type ImageDataUrls = ReadonlyMap<string, string>
 
+/**
+ * The plain text of one message the endpoint takes as text only (a developer
+ * notice): text blocks joined. The Harness projects files to text before
+ * reaching a model adapter; refuse anything else instead of silently dropping
+ * user input.
+ */
 function textOf(content: readonly ContentBlock[]): string {
   return content.map(block => {
     if (block.type === 'text') return block.text
-    // The Harness projects files to text before reaching a model adapter.
-    // Refuse unsupported blocks instead of silently dropping user input.
     throw new LlmError(`CodeBuddy: unsupported input block ${block.type}; this version accepts text.`, 'UNSUPPORTED_CONTENT')
   }).join('')
 }
@@ -24,10 +28,11 @@ function textOf(content: readonly ContentBlock[]): string {
  * Build the `content` of one user/tool message. A message with no image block
  * keeps the plain string form every turn already used; once an image is present
  * the content becomes the OpenAI multipart array, with each image a `image_url`
- * part carrying a base64 data URL. An image the adapter could not resolve (no
- * attachment service, or a read failure) becomes the same text-only placeholder
- * the framework emits for text-only models, so one unreadable image never fails
- * the whole request.
+ * part carrying a base64 data URL — in a tool message too, which is the
+ * spelling WorkBuddy's own client uses for tool-result images. An image the
+ * adapter could not resolve (no attachment service, or a read failure) becomes
+ * the same text-only placeholder the framework emits for text-only models, so
+ * one unreadable image never fails the whole request.
  */
 function contentOf(content: readonly ContentBlock[], images: ImageDataUrls): string | ChatCompletionContentPart[] {
   if (!content.some(block => block.type === 'image')) return content.map(block => {
@@ -73,7 +78,13 @@ export function toMessages(options: GenerateOptions, images: ImageDataUrls = new
       if (reasoning.length) item.reasoning_content = reasoning.join('')
       messages.push(item)
     } else if (message.role === 'tool') {
-      messages.push({ role: 'tool', tool_call_id: message.toolCallId, content: textOf(message.content) })
+      // Tool results reach an image-capable model with their image blocks (the
+      // framework already replaced them with placeholders on text-only routes).
+      // They ride as `image_url` parts of the tool message itself — the same
+      // multipart spelling user attachments take, and the one WorkBuddy's own
+      // client sends — instead of failing the request as an unsupported block.
+      messages.push({ role: 'tool', tool_call_id: message.toolCallId,
+        content: contentOf(message.content, images) } as ChatCompletionMessageParam)
     } else if (message.role === 'developer') {
       // This adapter declares no incremental tool-update capability. The
       // Harness sends complete current tool schemas in options.tools, so the

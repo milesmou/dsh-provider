@@ -225,6 +225,54 @@ test('Remote validates commands and its status reply never contains credential f
   assert.deepEqual(method.result.create().parse({ configured: true, access: 'secret' }), { configured: true })
 })
 
+test('tool-result images ride the tool message as image_url parts and never fail the request', async () => {
+  const image = { type: 'image', attachment: { attachmentId: 'sha256:abcd1234', mediaType: 'image/png', bytes: 6, width: 1, height: 1, name: 'shot.png' } }
+  const history = [
+    { role: 'user', content: [{ type: 'text', text: 'what is in shot.png' }] },
+    { role: 'assistant', content: [{ type: 'tool-call', id: 'call-1', name: 'read_image', arguments: '{"file_path":"shot.png"}' }] },
+    { role: 'tool', toolCallId: 'call-1', content: [{ type: 'text', text: 'image/png 1x1 px' }, image] },
+  ]
+  const response = { choices: [{ index: 0, delta: { content: 'ok' }, finish_reason: 'stop' }] }
+  const run = async resolveImage => {
+    let captured
+    const adapter = new CodeBuddyAdapter(Config({}), {
+      baseURL: 'https://copilot.tencent.com/v2', workbuddy: true, providerName: 'WorkBuddy',
+      authenticate: async () => ({ apiKey: 'oauth-secret', headers: {} }),
+      ...(resolveImage ? { resolveImage } : {}),
+      fetch: async (_url, init) => {
+        captured = JSON.parse(init.body)
+        return new Response('data: ' + JSON.stringify(response) + '\n\ndata: [DONE]\n\n', { headers: { 'content-type': 'text/event-stream' } })
+      },
+    })
+    const assembler = new BlockAssembler()
+    for await (const chunk of adapter.stream({ provider: 'workbuddy', model: 'auto', messages: history })) assembler.push(chunk)
+    return { captured, finish: assembler.finish.kind }
+  }
+
+  // A resolved image becomes an image_url part inside the tool message, the
+  // spelling WorkBuddy's own client uses, so the vision model sees it.
+  const resolved = await run(async ref => `data:${ref.mediaType};base64,${Buffer.from('pixels').toString('base64')}`)
+  const tool = resolved.captured.messages.find(message => message.role === 'tool')
+  assert.ok(Array.isArray(tool.content))
+  assert.deepEqual(tool.content, [
+    { type: 'text', text: 'image/png 1x1 px' },
+    { type: 'image_url', image_url: { url: 'data:image/png;base64,' + Buffer.from('pixels').toString('base64') } },
+  ])
+  assert.equal(tool.tool_call_id, resolved.captured.messages
+    .find(message => Array.isArray(message.tool_calls))?.tool_calls[0]?.id)
+  assert.equal(resolved.finish, 'stop')
+
+  // An unresolvable image degrades to the framework's text placeholder in the
+  // same message instead of failing the whole request with UNSUPPORTED_CONTENT.
+  const degraded = await run()
+  const plain = degraded.captured.messages.find(message => message.role === 'tool')
+  assert.ok(Array.isArray(plain.content))
+  assert.equal(plain.content[0].type, 'text')
+  assert.equal(plain.content[0].text, 'image/png 1x1 px')
+  assert.match(plain.content[1].text, /\[image omitted because this model accepts text only; attachment sha256:abcd1234\]/)
+  assert.equal(degraded.finish, 'stop')
+})
+
 test('conversation turn IDs persist across tool steps but repeated user text starts a new turn', () => {
   const user = { role: 'user', content: [{ type: 'text', text: 'continue' }] }
   const reply = { role: 'assistant', content: [{ type: 'text', text: 'done' }] }
