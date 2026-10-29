@@ -106,7 +106,7 @@ export function ModelManager({ actions, provider }: { actions: ModelManagementAc
           onClick={() => { void save(() => actions.showAll()) }}>全部显示</button>
       </div>
       {state && !state.writable ? <p style={{ margin: 0 }}>当前配置只读。</p> : null}
-      {state && !visible && models.length ? <p style={{ margin: 0 }}>全部模型已隐藏，可开启开关或点击“全部显示”恢复。</p> : null}
+      {state && !visible && models.length ? <p style={{ margin: 0 }}>全部模型已隐藏，可点击眼睛图标或“全部显示”恢复。</p> : null}
       {matches.length ? <ul aria-label={`${provider} 模型列表`} style={{ listStyle: 'none', margin: 0, padding: 0, maxHeight: 280, overflowY: 'auto' }}>
         {matches.map(model => <li key={model.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 0',
           borderBottom: '1px solid color-mix(in srgb, currentColor 10%, transparent)' }}>
@@ -114,11 +114,19 @@ export function ModelManager({ actions, provider }: { actions: ModelManagementAc
             <div style={{ fontWeight: 500, overflowWrap: 'anywhere' }}>{model.name}</div>
             <div style={{ opacity: 0.65, fontSize: 11, overflowWrap: 'anywhere' }}>{model.id}{contextLabel(model.contextWindow) ? ` · ${contextLabel(model.contextWindow)} 上下文` : ''}</div>
           </div>
-          <label style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flex: 'none' }}>
-            <input type="checkbox" role="switch" aria-label={`${provider} 显示 ${model.name} (${model.id})`} checked={!hidden.has(model.id)}
-              disabled={busy || !state?.writable} onChange={event => { void save(() => actions.setHidden(model.id, !event.target.checked)) }} />
-            {hidden.has(model.id) ? '已隐藏' : '显示'}
-          </label>
+          <button type="button" role="switch" aria-label={`${provider} 显示 ${model.name} (${model.id})`} aria-checked={!hidden.has(model.id)}
+            title={hidden.has(model.id) ? '显示模型' : '隐藏模型'} disabled={busy || !state?.writable}
+            onClick={() => { void save(() => actions.setHidden(model.id, !hidden.has(model.id))) }}
+            style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flex: 'none', width: 28, height: 28,
+              padding: 4, border: 0, borderRadius: 4, background: 'transparent', color: 'inherit',
+              cursor: busy || !state?.writable ? 'default' : 'pointer', opacity: busy || !state?.writable ? 0.35 : hidden.has(model.id) ? 0.55 : 1 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75"
+              strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+              <circle cx="12" cy="12" r="3" />
+              {hidden.has(model.id) ? <path d="m3 3 18 18" /> : null}
+            </svg>
+          </button>
         </li>)}
       </ul> : state ? <p style={{ margin: 0 }}>{models.length ? '没有匹配的模型。' : '暂无模型，请连接账号后刷新列表。'}</p> : null}
       {issue || state?.issue ? <p role="alert" style={{ margin: 0, lineHeight: 1.7 }}>{issue || state?.issue}</p> : null}
