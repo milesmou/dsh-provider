@@ -1,10 +1,14 @@
 import type { Context } from '@deepseek-ai/cordis'
+import type {} from '@deepseek-ai/dsh-api-remotes/client'
+import { REMOTE } from '../remote.js'
 import * as workbuddy from '../components/workbuddy/client/index.js'
 import * as codex from '../components/codex/client/index.js'
 
 export const name = 'dsh-provider-settings'
-export function apply(ctx: Context): void {
-  const workbuddyFiber = ctx.plugin(workbuddy)
-  void workbuddyFiber.await().catch(error => console.error('CodeBuddy settings initialization failed:', error))
+export const inject = ['remote']
+export async function apply(ctx: Context): Promise<void> {
+  const dispose = await ctx.remote.$mount(REMOTE)
+  ctx.effect(() => dispose)
+  ctx.plugin(workbuddy)
   ctx.plugin(codex)
 }

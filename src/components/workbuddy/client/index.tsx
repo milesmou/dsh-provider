@@ -10,16 +10,13 @@ import { CreditsBadge } from './credits-badge.js'
 import type { SelectionSource } from './credits-badge.js'
 import { ModelNameLabel } from './model-label.js'
 import { API_KEY_REF } from '../credential.js'
-import { REMOTE } from '../remote.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
 
 export const name = 'workbuddy-component-settings'
 export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings']
 
 /** The standard credentials Remote handles storage; environment sources are ignored. */
-export async function apply(ctx: Context): Promise<void> {
-  const dispose = await ctx.remote.$mount(REMOTE)
-  ctx.effect(() => dispose)
+export function apply(ctx: Context): void {
   ctx.inject(['remote.workbuddyProvider'], mountCard)
   ctx.inject(['remote.workbuddyProvider', 'modelDirectories'], mountCredits)
   mountModelLabel(ctx)

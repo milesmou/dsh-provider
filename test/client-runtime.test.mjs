@@ -5,6 +5,7 @@ import { createRequire } from 'node:module'
 import { runInNewContext } from 'node:vm'
 import { Context } from '@deepseek-ai/cordis'
 import * as gateway from '@deepseek-ai/dsh-api-gateway/client'
+import { TypertRegistry } from '@deepseek-ai/dsh-typert-registry'
 import SETTINGS from '@deepseek-ai/dsh-api-settings-controller/remote'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
@@ -20,10 +21,10 @@ async function loadBrowserBundle(file) {
 const provider = await loadBrowserBundle(new URL('../lib/client.js', import.meta.url))
 const renderer = await loadBrowserBundle(new URL('../node_modules/@deepseek-ai/dsh-client-ui-renderer/lib/client.js', import.meta.url))
 
-test('both cards survive the built-in label without duplicating platform Remote registrations', async () => {
+test('both cards share one package Remote in the real registry and survive disposal and reload', async () => {
   const ctx = new Context()
   try {
-    ctx.provide('typert', { remotes: { register: () => () => {} } })
+    new TypertRegistry(ctx)
     ctx.provide('connection', { interactions: 'none', rpc: { open: () => {} }, generation: { getSnapshot: () => undefined } })
     ctx.provide('modelDirectories', { directoryFor: () => undefined })
     new renderer.SlotRegistry(ctx)
@@ -37,11 +38,14 @@ test('both cards survive the built-in label without duplicating platform Remote 
     ctx.slots.register({ name: 'conversation.input.model.label' }, builtIn)
     await ctx.plugin(gateway).await()
     await ctx.remote.$mount(SETTINGS)
-    await ctx.plugin(provider).await()
+    const providerFiber = ctx.plugin(provider)
+    await providerFiber.await()
     await new Promise(setImmediate)
 
     const cards = ctx.slots.entries('settings.models.footer')
     assert.deepEqual(cards.map(entry => entry.options.id).sort(), ['codex', 'workbuddy'])
+    assert.ok(ctx.typert.remotes.get('workbuddyProvider/command'))
+    assert.ok(ctx.typert.remotes.get('codexProvider/command'))
     assert.equal(typeof ctx.remote.settings.describe, 'function')
     assert.equal(typeof ctx.remote.credentials.set, 'function')
     const workbuddy = cards.find(entry => entry.options.id === 'workbuddy')
@@ -58,5 +62,12 @@ test('both cards survive the built-in label without duplicating platform Remote 
     await [...workbuddyRuntime.fibers][0].dispose()
     assert.deepEqual(ctx.slots.entries('settings.models.footer').map(entry => entry.options.id), ['codex'])
     assert.ok(ctx.slots.entries('conversation.input.model.label').some(entry => entry.component === builtIn))
+    await providerFiber.dispose()
+    assert.equal(ctx.typert.remotes.get('workbuddyProvider/command'), undefined)
+    assert.equal(ctx.typert.remotes.get('codexProvider/command'), undefined)
+    assert.deepEqual(ctx.slots.entries('settings.models.footer'), [])
+    await ctx.plugin(provider).await()
+    await new Promise(setImmediate)
+    assert.deepEqual(ctx.slots.entries('settings.models.footer').map(entry => entry.options.id).sort(), ['codex', 'workbuddy'])
   } finally { await ctx.fiber.dispose() }
 })

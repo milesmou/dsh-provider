@@ -12,7 +12,7 @@ runInNewContext(await readFile(new URL('../../../lib/client.js', import.meta.url
   window: { __ModuleLoader__: { load: ({ factory }) => { client = factory(createRequire(import.meta.url)) } } },
 })
 
-test('Codex settings mounts its own Remote and slot and exposes only status and refresh', async () => {
+test('Codex settings uses the shared package Remote and exposes only status and refresh', async () => {
   const mounts = [], descriptors = [], calls = []
   let registration, component, disposed = false
   const effects = []
@@ -29,9 +29,10 @@ test('Codex settings mounts its own Remote and slot and exposes only status and 
       register: (options, card) => { registration = options; component = card; return () => {} },
     },
   }
-  client.apply(ctx)
+  await client.apply(ctx)
   await Promise.all(mounts)
-  assert.equal(descriptors[0].descriptors[0].namespace, 'codexProvider')
+  assert.equal(descriptors.length, 1)
+  assert.deepEqual([...new Set(descriptors[0].descriptors.map(item => item.namespace))].sort(), ['codexProvider', 'workbuddyProvider'])
   assert.equal(registration.id, 'codex')
   const { actions } = registration.inject()
   assert.deepEqual(await actions.command('status'), { configured: true, models: 3, source: 'live' })
