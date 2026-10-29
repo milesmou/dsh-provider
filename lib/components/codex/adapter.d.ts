@@ -9,6 +9,7 @@ export interface Connection {
     resolveImage?(ref: ImageBlock['attachment'], signal?: AbortSignal): Promise<string>;
     baseURL?: string;
     fetch?: typeof fetch;
+    hiddenModels?(): readonly string[];
 }
 export declare class CodexAdapter extends LlmAdapter {
     private readonly config;

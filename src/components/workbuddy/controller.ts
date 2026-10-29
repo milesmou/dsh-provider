@@ -6,6 +6,9 @@ import type { ControlAction, ControlReply, CreditsReply } from './remote.js'
 import type { WorkBuddySession } from './session.js'
 import { projectRemain } from './credits.js'
 import type { CreditLedger, SessionBalance } from './credits.js'
+import type { ModelCatalog } from './catalog.js'
+import { modelDirectory } from '../../model-management.js'
+import type { ModelDirectoryReply } from '../../model-management.js'
 
 export class WorkBuddyController extends TypertRemoteService {
   /** One fetch of the account balance per session; later reads project from it. */
@@ -15,8 +18,20 @@ export class WorkBuddyController extends TypertRemoteService {
     session(): WorkBuddySession
     ledger: CreditLedger
     enabled(): boolean
+    catalog?(): ModelCatalog | undefined
   }) {
     super(ctx, 'workbuddyProvider')
+  }
+
+  @Remote
+  async models(refresh: boolean): Promise<ModelDirectoryReply> {
+    if (typeof refresh !== 'boolean') throw new TypeError('Invalid model refresh')
+    const catalog = this.options.catalog?.()
+    if (refresh) await catalog?.refresh()
+    else await catalog?.ready()
+    const current = this.options.catalog?.()
+    if (current !== catalog) await current?.ready()
+    return modelDirectory(current?.models() ?? [], current?.issue)
   }
 
   @Remote

@@ -9,6 +9,7 @@ import type { CodexAuth } from './session.js'
 import { object } from './session.js'
 import type { CodexCatalog } from './catalog.js'
 import { toInput, toolNames } from './messages.js'
+import { visibleModels } from '../../model-management.js'
 
 export interface Connection {
   authenticate(signal?: AbortSignal): Promise<CodexAuth>
@@ -16,6 +17,7 @@ export interface Connection {
   resolveImage?(ref: ImageBlock['attachment'], signal?: AbortSignal): Promise<string>
   baseURL?: string
   fetch?: typeof fetch
+  hiddenModels?(): readonly string[]
 }
 
 interface BlockState {
@@ -60,7 +62,8 @@ export class CodexAdapter extends LlmAdapter {
   override providerInfo(provider: string) { return { id: provider, name: 'Codex' } }
   override async listModels(provider: string) {
     await this.connection.catalog.ready()
-    return this.connection.catalog.models().map(model => ({ provider, id: model.id, name: model.name, inputModalities: model.inputModalities }))
+    return visibleModels(this.connection.catalog.models(), this.connection.hiddenModels?.())
+      .map(model => ({ provider, id: model.id, name: model.name, inputModalities: model.inputModalities }))
   }
   override async resolveModel(provider: string, id: string): Promise<LlmResolvedModelInfo> {
     await this.connection.catalog.ready()

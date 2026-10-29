@@ -5,6 +5,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         mode: import("@deepseek-ai/schemastery").default<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
+        hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
         environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
@@ -13,6 +14,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         mode: import("@deepseek-ai/schemastery").default<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
+        hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
         environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
@@ -23,6 +25,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         mode: import("@deepseek-ai/schemastery").default<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
+        hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
         environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;
@@ -31,6 +34,7 @@ export declare const Config: import("@deepseek-ai/schemastery").default<Schemast
         mode: import("@deepseek-ai/schemastery").default<"workbuddy" | "api", "workbuddy" | "api", "volatile-defined">;
         workbuddyRegion: import("@deepseek-ai/schemastery").default<"cn" | "intl", "cn" | "intl", "volatile-defined">;
         contextWindow: import("@deepseek-ai/schemastery").default<"light" | "middle" | "max", "light" | "middle" | "max", "volatile-defined">;
+        hiddenModels: import("@deepseek-ai/schemastery").default<NoInfer<string[]>, NoInfer<string[]>, "volatile-defined">;
         environment: import("@deepseek-ai/schemastery").default<"internal" | "overseas" | "ioa", "internal" | "overseas" | "ioa", "defined">;
         baseURL: import("@deepseek-ai/schemastery").default<string, string, "defined">;
         timeoutMs: import("@deepseek-ai/schemastery").default<number, number, "defined">;

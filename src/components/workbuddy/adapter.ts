@@ -9,6 +9,7 @@ import type { ModelConfig, Options } from './config.js'
 import { toMessages } from './messages.js'
 import type { ImageDataUrls } from './messages.js'
 import type { ModelCatalog } from './catalog.js'
+import { visibleModels } from '../../model-management.js'
 import { workbuddyRequest } from './workbuddy-request.js'
 import { AFTER_TOOLS_REFUSED, clientChatHeaders, replyAfterToolResults, systemAsUser } from './shaping.js'
 import type { LooseBody } from './shaping.js'
@@ -34,6 +35,7 @@ export interface Connection {
   catalog?: ModelCatalog
   /** Built-in model shown before/without a catalog result; never user-configured. */
   fallback?: ModelConfig[]
+  hiddenModels?(): readonly string[]
 }
 
 /** Declared input modalities when the catalog is silent: WorkBuddy chat models take text and images. */
@@ -120,7 +122,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
 
   override async listModels(provider: string) {
     await this.connection.catalog?.ready()
-    return this.modelList().map(model => ({
+    return visibleModels(this.modelList(), this.connection.hiddenModels?.()).map(model => ({
       provider, id: model.id, name: model.name || model.id,
       // The catalog's credit multiplier rides in `description`: it is the only
       // field the client model entry preserves beyond identity and modalities,

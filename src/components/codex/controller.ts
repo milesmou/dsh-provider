@@ -6,9 +6,19 @@ import type { CodexSession } from './session.js'
 import type { CodexCatalog } from './catalog.js'
 import type { CodexQuota } from './quota.js'
 import type { QuotaView } from './remote.js'
+import { modelDirectory } from '../../model-management.js'
+import type { ModelDirectoryReply } from '../../model-management.js'
 
 export class CodexController extends TypertRemoteService {
   constructor(ctx: Context, private readonly options: { session: CodexSession; catalog: CodexCatalog; quota: CodexQuota }) { super(ctx, 'codexProvider') }
+
+  @Remote
+  async models(refresh: boolean): Promise<ModelDirectoryReply> {
+    if (typeof refresh !== 'boolean') throw new TypeError('Invalid model refresh')
+    if (refresh) await this.options.catalog.refresh()
+    else await this.options.catalog.ready()
+    return modelDirectory(this.options.catalog.models(), this.options.catalog.issue)
+  }
 
   @Remote
   async quota(refresh: boolean): Promise<QuotaView> {

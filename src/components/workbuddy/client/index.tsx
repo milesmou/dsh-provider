@@ -10,6 +10,7 @@ import { CreditsBadge } from './credits-badge.js'
 import type { SelectionSource } from './credits-badge.js'
 import { API_KEY_REF } from '../credential.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
+import { modelManagementActions } from '../../../client/model-manager.js'
 
 export const name = 'workbuddy-component-settings'
 export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings']
@@ -52,6 +53,11 @@ function mountCredits(ctx: Context): void {
 }
 
 function mountCard(ctx: Context): void {
+  const modelActions = modelManagementActions(ctx, { namespace: SETTINGS_NAMESPACE, path: 'workbuddy', models: async refresh => {
+    const result = await ctx.remote.workbuddyProvider.models(refresh)
+    if (!result.ok) throw new Error('WorkBuddy models unavailable')
+    return result.value
+  } })
   const section = async () => {
     const response = await ctx.remote.settings.describe()
     if (!response.ok) throw new Error('Settings unavailable')
@@ -103,6 +109,6 @@ function mountCard(ctx: Context): void {
   }
   ctx.slots.inject(PROVIDER_CARDS_SLOT, () => ctx.slots.register({
     name: PROVIDER_CARDS_SLOT, id: 'workbuddy', order: 20,
-    inject: () => ({ actions, connection }),
+    inject: () => ({ actions, connection, modelActions }),
   }, WorkBuddyCard))
 }

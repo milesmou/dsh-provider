@@ -3,6 +3,8 @@ import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
 import type { ControlAction, ControlReply, CreditsReply } from './remote.js';
 import type { WorkBuddySession } from './session.js';
 import type { CreditLedger } from './credits.js';
+import type { ModelCatalog } from './catalog.js';
+import type { ModelDirectoryReply } from '../../model-management.js';
 export declare class WorkBuddyController extends TypertRemoteService {
     private readonly options;
     /** One fetch of the account balance per session; later reads project from it. */
@@ -11,7 +13,9 @@ export declare class WorkBuddyController extends TypertRemoteService {
         session(): WorkBuddySession;
         ledger: CreditLedger;
         enabled(): boolean;
+        catalog?(): ModelCatalog | undefined;
     });
+    models(refresh: boolean): Promise<ModelDirectoryReply>;
     command(action: ControlAction): Promise<ControlReply>;
     /**
      * Credit figures for one session: this conversation's accumulated spend from

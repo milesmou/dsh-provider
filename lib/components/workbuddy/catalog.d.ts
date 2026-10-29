@@ -19,6 +19,7 @@ export declare class ModelCatalog {
     private readonly changed;
     /** Which context window the adapter should advertise (settings choice). */
     private readonly contextPolicy;
+    issue?: string;
     private remote;
     private pending?;
     private controller;

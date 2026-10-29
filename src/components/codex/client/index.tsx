@@ -6,19 +6,25 @@ import { CodexCard } from './card.js'
 import type { CodexActions } from './card.js'
 import { QuotaBadge } from './quota-badge.js'
 import { sessionSelection } from '../../../client/session-selection.js'
+import { modelManagementActions } from '../../../client/model-manager.js'
 
 export const name = 'codex-component-settings'
 export const inject = ['slots', 'remote']
 
 export function apply(ctx: Context): void {
-  ctx.inject(['remote.codexProvider'], child => {
+  ctx.inject(['remote.codexProvider', 'remote.settings'], child => {
+    const modelActions = modelManagementActions(child, { namespace: 'dsh-provider-codex', models: async refresh => {
+      const result = await child.remote.codexProvider.models(refresh)
+      if (!result.ok) throw new Error('Codex models unavailable')
+      return result.value
+    } })
     const actions: CodexActions = { command: async action => {
       const result = await child.remote.codexProvider.command(action)
       if (!result.ok) throw new Error('Codex operation unavailable')
       return result.value
     } }
     child.slots.inject(PROVIDER_CARDS_SLOT, () => child.slots.register({
-      name: PROVIDER_CARDS_SLOT, id: 'codex', order: 30, inject: () => ({ actions }),
+      name: PROVIDER_CARDS_SLOT, id: 'codex', order: 30, inject: () => ({ actions, modelActions }),
     }, CodexCard))
   })
   ctx.inject(['remote.codexProvider', 'modelDirectories'], child => {

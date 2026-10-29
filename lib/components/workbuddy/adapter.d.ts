@@ -26,6 +26,7 @@ export interface Connection {
     catalog?: ModelCatalog;
     /** Built-in model shown before/without a catalog result; never user-configured. */
     fallback?: ModelConfig[];
+    hiddenModels?(): readonly string[];
 }
 export declare class CodeBuddyAdapter extends LlmAdapter {
     private readonly config;

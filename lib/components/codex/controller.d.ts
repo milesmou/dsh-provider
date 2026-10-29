@@ -5,6 +5,7 @@ import type { CodexSession } from './session.js';
 import type { CodexCatalog } from './catalog.js';
 import type { CodexQuota } from './quota.js';
 import type { QuotaView } from './remote.js';
+import type { ModelDirectoryReply } from '../../model-management.js';
 export declare class CodexController extends TypertRemoteService {
     private readonly options;
     constructor(ctx: Context, options: {
@@ -12,6 +13,7 @@ export declare class CodexController extends TypertRemoteService {
         catalog: CodexCatalog;
         quota: CodexQuota;
     });
+    models(refresh: boolean): Promise<ModelDirectoryReply>;
     quota(refresh: boolean): Promise<QuotaView>;
     command(action: ControlAction): Promise<ControlReply>;
 }

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { createTypertRemoteInfo } from '@deepseek-ai/dsh-typert-protocol/remote-info'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { ModelDirectory } from '../../model-management.js'
+import type { ModelDirectoryReply } from '../../model-management.js'
 
 export const Action = z.enum(['status', 'login', 'poll', 'cancel', 'desktop'])
 export type ControlAction = z.infer<typeof Action>
@@ -26,6 +28,11 @@ const actionCodec = codec(Action, 'action')
 const sessionIdCodec = codec(z.string(), 'sessionId')
 const refreshCodec = codec(z.boolean(), 'refresh')
 export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods: {
+  'workbuddyProvider/models': {
+    service: 'workbuddyProvider', invocation: { kind: 'direct' },
+    parameters: [{ name: 'refresh', source: 'json', codec: refreshCodec, strictCodec: refreshCodec }],
+    result: codec(ModelDirectory, 'models'),
+  },
   'workbuddyProvider/command': {
     service: 'workbuddyProvider', invocation: { kind: 'direct' },
     parameters: [{ name: 'action', source: 'json', codec: actionCodec, strictCodec: actionCodec }],
@@ -47,6 +54,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     workbuddyProvider: {
       command(action: ControlAction): Promise<RemoteResult<ControlReply>>
       credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>
+      models(refresh: boolean): Promise<RemoteResult<ModelDirectoryReply>>
     }
   }
 }

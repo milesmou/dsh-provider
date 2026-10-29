@@ -57,7 +57,7 @@ function imageResolver(ctx: Context): Connection['resolveImage'] {
 }
 
 export function apply(ctx: Context, config: PluginConfig): void {
-  const { mode, workbuddyRegion, contextWindow, ...options } = config
+  const { mode, workbuddyRegion, contextWindow, hiddenModels, ...options } = config
   const environment = launchEnvironmentOf(ctx)
   const ref = credentialRef(API_KEY_REF)
   const sessions = new Map<WorkBuddyRegion, WorkBuddySession>()
@@ -105,13 +105,17 @@ export function apply(ctx: Context, config: PluginConfig): void {
     }
     const models = baselineModels(mode.get(), workbuddyRegion.get())
     connection.fallback = models
+    connection.hiddenModels = () => hiddenModels.get()
     catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'), () => contextWindow.get())
     adapter = new CodeBuddyAdapter(structuredClone(options), { ...connection, catalog })
     void catalog.refresh()
   }
   rebuild()
   ctx.llm.registerAdapter([MODEL_ROUTE], new SwitchingAdapter(() => adapter))
-  ctx.plugin(WorkBuddyController, { session, ledger, enabled: () => mode.get() === 'workbuddy' })
+  ctx.plugin(WorkBuddyController, { session, ledger, catalog: () => catalog, enabled: () => mode.get() === 'workbuddy' })
+  ctx.on('loader/volatile-update', paths => {
+    if (paths.some(path => path.at(-1) === 'hiddenModels')) ctx.emit('llm/adapters-updated')
+  })
   ctx.inject(['credentials'], () => { catalog?.credentialsChanged() })
   ctx.on('credentials/reference-updated', updated => {
     if (updated === ref && mode.get() === 'api') catalog?.credentialsChanged()

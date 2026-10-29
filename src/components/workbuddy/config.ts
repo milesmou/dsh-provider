@@ -9,6 +9,7 @@ export type PluginConfig = Options & {
   mode: Volatile<Mode>
   workbuddyRegion: Volatile<WorkBuddyRegion>
   contextWindow: Volatile<ContextWindowMode>
+  hiddenModels: Volatile<string[]>
 }
 
 /** Fallback working window when the catalog discloses no context length at all. */
@@ -79,6 +80,7 @@ export const Config = z.object({
   mode: z.union(['api', 'workbuddy']).default('api').volatile(),
   workbuddyRegion: z.union(['cn', 'intl']).default('cn').volatile(),
   contextWindow: z.union(['light', 'middle', 'max']).default('middle').volatile(),
+  hiddenModels: z.array(z.string()).default([]).volatile(),
   environment: z.union(['internal', 'overseas', 'ioa']).default('internal'),
   baseURL: z.string().default(''),
   timeoutMs: z.number().step(1).min(1).max(2147483647).default(180000),

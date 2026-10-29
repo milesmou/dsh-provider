@@ -110,6 +110,7 @@ export function parseCatalog(value: unknown): ModelConfig[] {
 
 /** Cache the last successful catalog; a failed refresh never empties the selector. */
 export class ModelCatalog {
+  issue?: string
   private remote: ModelConfig[] = []
   private pending?: Promise<void>
   private controller = new AbortController()
@@ -161,12 +162,15 @@ export class ModelCatalog {
         if (!response.ok) { await response.body?.cancel(); throw new Error('CodeBuddy catalog unavailable') }
         const models = parseCatalog(await response.json())
         if (this.disposed || generation !== this.generation) return
+        this.issue = undefined
         if (JSON.stringify(models) !== JSON.stringify(this.remote)) {
           this.remote = models
           this.changed()
         }
       } catch {
         // Never surface transport bodies/headers, which can echo the API key.
+        if (!this.disposed && generation === this.generation) this.issue = this.remote.length
+          ? '模型目录更新失败，正在显示已有模型。' : '暂时未获取到模型目录，正在显示默认模型。'
       }
     })()
     this.pending = task

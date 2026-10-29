@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { createTypertRemoteInfo } from '@deepseek-ai/dsh-typert-protocol/remote-info'
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol'
+import { ModelDirectory } from '../../model-management.js'
+import type { ModelDirectoryReply } from '../../model-management.js'
 
 export const Action = z.enum(['status', 'refresh'])
 export type ControlAction = z.infer<typeof Action>
@@ -23,6 +25,11 @@ const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,
 const actionCodec = codec(Action, 'action')
 const refreshCodec = codec(z.boolean(), 'quotaRefresh')
 export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods: {
+  'codexProvider/models': {
+    service: 'codexProvider', invocation: { kind: 'direct' },
+    parameters: [{ name: 'refresh', source: 'json', codec: refreshCodec, strictCodec: refreshCodec }],
+    result: codec(ModelDirectory, 'models'),
+  },
   'codexProvider/command': {
     service: 'codexProvider', invocation: { kind: 'direct' },
     parameters: [{ name: 'action', source: 'json', codec: actionCodec, strictCodec: actionCodec }],
@@ -41,6 +48,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     codexProvider: {
       command(action: ControlAction): Promise<RemoteResult<ControlReply>>
       quota(refresh: boolean): Promise<RemoteResult<QuotaView>>
+      models(refresh: boolean): Promise<RemoteResult<ModelDirectoryReply>>
     }
   }
 }

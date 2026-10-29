@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react'
 import type { ControlAction, ControlReply } from '../remote.js'
+import { ModelManager } from '../../../client/model-manager.js'
+import type { ModelManagementActions } from '../../../client/model-manager.js'
 
 export interface CodexActions { command(action: ControlAction): Promise<ControlReply> }
 
-export function CodexCard({ actions }: { actions: CodexActions }) {
+export function CodexCard({ actions, modelActions }: { actions: CodexActions; modelActions?: ModelManagementActions }) {
   const [status, setStatus] = useState<ControlReply>()
   const [busy, setBusy] = useState(false)
   const [issue, setIssue] = useState('')
+  const [modelRevision, setModelRevision] = useState(0)
   useEffect(() => {
     let live = true
     void actions.command('status').then(value => { if (live) setStatus(value) }, () => {
@@ -18,7 +21,7 @@ export function CodexCard({ actions }: { actions: CodexActions }) {
   async function refresh() {
     if (busy) return
     setBusy(true); setIssue('')
-    try { setStatus(await actions.command('refresh')) }
+    try { setStatus(await actions.command('refresh')); setModelRevision(value => value + 1) }
     catch { setIssue('刷新 Codex 失败，请稍后重试。') }
     finally { setBusy(false) }
   }
@@ -40,5 +43,6 @@ export function CodexCard({ actions }: { actions: CodexActions }) {
       {busy ? '刷新中…' : '刷新登录态和模型'}
     </button></div>
     {issue || status?.issue ? <p role="alert" style={{ margin: 0, fontSize: 12, lineHeight: 1.7 }}>{issue || status?.issue}</p> : null}
+    {modelActions ? <ModelManager key={`${status?.configured}:${modelRevision}`} actions={modelActions} provider="Codex" /> : null}
   </section>
 }

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { RemoteResult } from '@deepseek-ai/dsh-typert-protocol';
+import type { ModelDirectoryReply } from '../../model-management.js';
 export declare const Action: z.ZodEnum<{
     desktop: "desktop";
     status: "status";
@@ -35,6 +36,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
         workbuddyProvider: {
             command(action: ControlAction): Promise<RemoteResult<ControlReply>>;
             credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>;
+            models(refresh: boolean): Promise<RemoteResult<ModelDirectoryReply>>;
         };
     }
 }

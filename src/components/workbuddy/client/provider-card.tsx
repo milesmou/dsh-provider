@@ -5,6 +5,8 @@ import type { CredentialActions } from './card.js'
 import type { ContextWindowMode, Mode } from '../config.js'
 import type { WorkBuddyRegion, WorkBuddyStatus } from '../session.js'
 import type { ControlAction, ControlReply } from '../remote.js'
+import { ModelManager } from '../../../client/model-manager.js'
+import type { ModelManagementActions } from '../../../client/model-manager.js'
 
 export interface ConnectionState { mode: Mode; region: WorkBuddyRegion; context: ContextWindowMode; writable: boolean; login?: WorkBuddyStatus }
 export interface ConnectionActions {
@@ -25,7 +27,9 @@ const selectColors: CSSProperties = {
 const selectControl: CSSProperties = { ...control, ...selectColors }
 const label: CSSProperties = { display: 'grid', gap: 6, fontSize: 13 }
 
-export function WorkBuddyCard({ actions, connection }: { actions: CredentialActions; connection: ConnectionActions }) {
+export function WorkBuddyCard({ actions, connection, modelActions }: {
+  actions: CredentialActions; connection: ConnectionActions; modelActions?: ModelManagementActions
+}) {
   const [state, setState] = useState<ConnectionState>()
   const [issue, setIssue] = useState('')
   const [busy, setBusy] = useState(false)
@@ -125,5 +129,7 @@ export function WorkBuddyCard({ actions, connection }: { actions: CredentialActi
       <option style={selectColors} value="max">最大</option>
     </select></label>
     {issue ? <p role="alert" style={{ margin: 0, fontSize: 12 }}>{issue}</p> : null}
+    {modelActions ? <ModelManager key={`${state?.mode}:${state?.region}:${state?.context}:${state?.login?.configured}`}
+      actions={modelActions} provider="WorkBuddy" /> : null}
   </section>
 }
