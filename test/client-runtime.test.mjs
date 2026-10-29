@@ -72,6 +72,14 @@ test('the dedicated settings page and model labels share one Remote and survive 
     assert.ok(labels.some(entry => entry.component === builtIn))
     assert.notEqual(labels[0].options.priority ?? 0, labels[1].options.priority ?? 0)
     const modelLabel = labels.find(entry => entry.component !== builtIn)
+    for (const placement of ['trigger', 'menu', 'option']) {
+      const labelMarkup = renderToStaticMarkup(createElement(modelLabel.component, {
+        provider: { id: 'workbuddy', name: 'CodeBuddy API' },
+        model: { id: 'api-priced', name: 'API model', description: 'x0.11' }, placement,
+      }))
+      assert.match(labelMarkup, /title="积分倍率 x0.11"/)
+      assert.match(labelMarkup, />x0.11<\/span>/)
+    }
     for (const placement of ['trigger', 'menu']) {
       const labelMarkup = renderToStaticMarkup(createElement(modelLabel.component, {
         provider: { id: 'codex' }, model: { id: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' }, placement,

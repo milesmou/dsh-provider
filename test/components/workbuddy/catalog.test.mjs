@@ -51,17 +51,23 @@ test('object-only contextWindow falls back to its highest supported length', () 
 test('catalog carries each model\'s credit multiplier', () => {
   const parsed = parseCatalog({ code: 0, data: { models: [
     { id: 'priced', credits: 'x0.69' },
+    { id: 'api-priced', credits: ' x0.11 credits ' },
+    { id: 'api-free', credits: 'X0.00 CREDITS' },
     { id: 'free', credits: 'X0.00' },
     { id: 'numeric', credits: 1.2 },
     { id: 'none' },
     { id: 'unreadable', credits: 'n/a' },
+    { id: 'invalid-unit', credits: 'x0.11 credits extra' },
   ] } })
   const byId = Object.fromEntries(parsed.map(model => [model.id, model]))
   assert.equal(byId.priced.credits, 'x0.69')
+  assert.equal(byId['api-priced'].credits, 'x0.11')
+  assert.equal(byId['api-free'].credits, 'x0.00')
   assert.equal(byId.free.credits, 'x0.00')
   assert.equal(byId.numeric.credits, 'x1.2')
   assert.equal(byId.none.credits, undefined)
   assert.equal(byId.unreadable.credits, undefined)
+  assert.equal(byId['invalid-unit'].credits, undefined)
 })
 
 test('catalog parses thinking levels, defaults, and image capability', () => {
@@ -108,7 +114,7 @@ test('adapter advertises parsed thinking levels and image modality per model', a
 test('adapter advertises each model\'s credit multiplier as its description', async t => {
   const connection = { baseURL: 'https://gateway.example/v2', resolveApiKey: async () => 'ck_fake',
     fetch: async () => Response.json({ data: [
-      { id: 'priced', credits: 'x0.11' },
+      { id: 'priced', credits: 'x0.11 credits' },
       { id: 'plain' },
     ] }) }
   const catalog = new ModelCatalog([], connection)

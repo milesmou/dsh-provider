@@ -14,14 +14,15 @@ const positive = (value: unknown): number | undefined => typeof value === 'numbe
 const strings = (value: unknown): string[] => Array.isArray(value) ? value.filter(item => typeof item === 'string' && item.trim()).map(item => item.trim()) : []
 /**
  * Credit multiplier one catalog entry advertises. WorkBuddy reports it as a
- * short string such as `x0.69`; a bare number is normalized to the same form so
- * every model carries one consistent spelling.
+ * short string such as `x0.69` or `x0.69 credits`; a bare number is normalized
+ * to the same unit-free form so every model carries one consistent spelling.
  */
 const creditMultiplier = (value: unknown): string | undefined => {
   if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return 'x' + value
   if (typeof value !== 'string') return undefined
   const text = value.trim().toLowerCase()
-  return /^x\d+(?:\.\d+)?$/.test(text) ? text : undefined
+  const match = /^x(\d+(?:\.\d+)?)(?:\s+credits)?$/.exec(text)
+  return match ? 'x' + match[1] : undefined
 }
 /** Selectable context lengths a contextWindow object advertises, in the order given. */
 const supportedLengths = (value: unknown): number[] => {
