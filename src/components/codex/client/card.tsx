@@ -32,12 +32,10 @@ export function CodexCard({ actions, modelActions }: { actions: CodexActions; mo
       <span style={{ fontSize: 12, opacity: 0.7 }}>{!status ? '读取中…' : status.configured ? '已读取本机登录态' : '未登录'}</span>
     </div>
     <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, opacity: 0.8 }}>
-      使用本机 Codex 的 ChatGPT 登录态，无需填写 API Key。请先运行 <code>codex login</code> 完成登录，再刷新此组件。
-      凭据和模型缓存默认从 <code>~/.codex</code> 读取，也支持 <code>CODEX_HOME</code>。
+      使用本机 Codex 登录，无需 API Key。
+      {!status?.configured ? <>运行 <code>codex login</code> 后刷新。</> : null}
+      {status ? <>已加载 {status.models} 个模型。</> : null}
     </p>
-    {status ? <p style={{ margin: 0, fontSize: 12 }}>
-      已发现 {status.models} 个模型{status.source === 'cache' ? '（本机缓存）' : status.source === 'live' ? '（在线目录）' : ''}，可在对话模型选择器中选择 Codex。
-    </p> : null}
     <div><button type="button" disabled={busy} onClick={() => { void refresh() }} style={{ font: 'inherit', color: 'inherit',
       background: 'transparent', border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}>
       {busy ? '刷新中…' : '刷新登录态和模型'}
