@@ -4,6 +4,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { PROVIDER_CARDS_SLOT } from '../../../client/settings-page.js'
 import { CodexCard } from './card.js'
 import type { CodexActions } from './card.js'
+import { QuotaBadge } from './quota-badge.js'
+import { sessionSelection } from '../../../client/session-selection.js'
 
 export const name = 'codex-component-settings'
 export const inject = ['slots', 'remote']
@@ -18,5 +20,20 @@ export function apply(ctx: Context): void {
     child.slots.inject(PROVIDER_CARDS_SLOT, () => child.slots.register({
       name: PROVIDER_CARDS_SLOT, id: 'codex', order: 30, inject: () => ({ actions }),
     }, CodexCard))
+  })
+  ctx.inject(['remote.codexProvider', 'modelDirectories'], child => {
+    const read = async (refresh: boolean) => {
+      const result = await child.remote.codexProvider.quota(refresh)
+      if (!result.ok) throw new Error('Codex quota unavailable')
+      return result.value
+    }
+    const slots = child.slots as unknown as {
+      inject(name: string, callback: () => () => void): void
+      register(options: Record<string, unknown>, component: unknown): () => void
+    }
+    slots.inject('conversation.session.header.utilities', () => slots.register({
+      name: 'conversation.session.header.utilities', id: 'codex-quota', order: -20,
+      inject: () => ({ read, selection: (sessionId: string) => sessionSelection(child, sessionId) }),
+    }, QuotaBadge))
   })
 }

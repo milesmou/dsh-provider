@@ -9,6 +9,7 @@ import { CodexSession, resolveCodexHome } from './session.js'
 import { MODEL_ROUTE } from './config.js'
 import type { Options } from './config.js'
 import { CodexController } from './controller.js'
+import { CodexQuota } from './quota.js'
 
 export { Config } from './config.js'
 export type { Options } from './config.js'
@@ -24,6 +25,7 @@ export function apply(ctx: Context, config: Options): void {
   const environment = launchEnvironmentOf(ctx)
   const session = new CodexSession(resolveCodexHome(config.codexHome, environment.get('CODEX_HOME')?.value))
   const catalog = new CodexCatalog(session, () => ctx.emit('llm/adapters-updated'))
+  const quota = new CodexQuota(session)
   const adapter = new CodexAdapter(config, { catalog, authenticate: signal => session.authenticate(signal),
     resolveImage: async (ref, signal) => {
       const attachments = ctx.get('attachments') as AttachmentsService | undefined
@@ -33,10 +35,10 @@ export function apply(ctx: Context, config: Options): void {
     },
   })
   ctx.llm.registerAdapter([MODEL_ROUTE], adapter)
-  ctx.plugin(CodexController, { session, catalog })
+  ctx.plugin(CodexController, { session, catalog, quota })
   ctx.inject(['settings'], child => {
     child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
   })
-  ctx.effect(() => () => catalog.dispose())
+  ctx.effect(() => () => { catalog.dispose(); quota.dispose() })
   void catalog.refresh()
 }

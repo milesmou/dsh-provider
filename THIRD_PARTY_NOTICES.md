@@ -1,6 +1,6 @@
 # Third-party notices
 
-The Codex terminal mark is from the Codex application's SVG assets, used to identify the Codex provider. Codex is a trademark of OpenAI.
+The OpenAI knot mark is from the Codex application's SVG assets, used on a white app tile to identify the Codex provider. OpenAI and Codex are trademarks of OpenAI.
 
 WorkBuddy authentication and request compatibility reference the following MIT-licensed projects. The implementation keeps DSH as the tool executor and does not modify desktop credential files.
 

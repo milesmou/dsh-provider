@@ -41,6 +41,9 @@ github:milesmou/dsh-provider#main
 - 启动和手动刷新时获取 Codex 模型目录；网络不可用时使用本机 `models_cache.json` 或上次成功的目录，不写死模型 ID。模型目录用于选择，实际可用性以账号权限及请求结果为准。
 - 支持文字、图片、流式回复、思考强度、思考摘要、工具调用与工具结果回传，并保存加密思考内容供后续轮次使用。
 - 组件每次请求重新读取凭据，不修改本机登录文件。登录态过期时，打开 Codex 更新登录或重新运行 `codex login`，然后刷新组件。
+- 使用 Codex 模型时，会话右上角显示账号剩余额度，按接口实际返回的窗口展示（如 `5h 94% · 周 90%`）。悬停可查看重置时间和更新时间，点击可手动刷新；默认每 60 秒刷新，多个会话共享缓存。读取失败会提示或标明缓存，不会把缺失额度当成 100% 剩余。
 - 使用 Codex 的 Responses 协议；此接入不发送 `temperature`、`max_output_tokens`，不支持 `stop`。DSH 的输出长度提示不会限制此路由的生成长度。
 
 此组件复用本机 Codex 的 ChatGPT 登录，通过 Codex 服务访问模型，不要求另填 OpenAI API Key。协议说明可参考 [OpenAI Docs：Responses API](https://developers.openai.com/api/docs/guides/migrate-to-responses)。
+
+开发与维护约定见 [Agent 规范](AGENTS.md)。额度窗口字段说明见 [OpenAI Docs：Codex App Server](https://learn.chatgpt.com/docs/app-server#6-rate-limits-chatgpt)。

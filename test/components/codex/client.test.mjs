@@ -19,7 +19,7 @@ test('Codex settings uses the shared package Remote and exposes only status and 
   const ctx = {
     effect: callback => { effects.push(callback) },
     plugin: plugin => { const pending = plugin.name === 'codex-component-settings' ? Promise.resolve(plugin.apply(ctx)) : Promise.resolve(); mounts.push(pending); return { await: () => pending } },
-    inject: (_services, callback) => callback(ctx),
+    inject: (services, callback) => { if (!services.includes('modelDirectories')) callback(ctx) },
     remote: {
       $mount: async remote => { descriptors.push(remote); return () => { disposed = true } },
       codexProvider: { command: async action => { calls.push(action); return { ok: true, value: { configured: true, models: 3, source: 'live' } } } },

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
+import type { SelectionSource } from '../../../client/session-selection.js'
+export type { SelectionSource } from '../../../client/session-selection.js'
 
 /** What the host reports for one session's credit figures. */
 export interface CreditsView {
@@ -13,12 +15,6 @@ export interface CreditsView {
 
 /** The provider the WorkBuddy component owns; the badge shows only for it. */
 export const WORKBUDDY_PROVIDER = 'workbuddy'
-
-/** One session's shared model-selection store (the model picker's own source). */
-export interface SelectionSource {
-  getSnapshot(): { current?: { provider?: string; model?: string } | null } | undefined
-  subscribe(listener: () => void): () => void
-}
 
 export interface CreditsBadgeProps {
   /** Session-scope standard prop; optional so the type also admits the absent scope. */

@@ -9,10 +9,13 @@ import { TypertRegistry } from '@deepseek-ai/dsh-typert-registry'
 import SETTINGS from '@deepseek-ai/dsh-api-settings-controller/remote'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { act, create } from 'react-test-renderer'
+import { parseQuota } from '../lib/components/codex/quota.js'
 
 async function loadBrowserBundle(file) {
   let result
   runInNewContext(await readFile(file, 'utf8'), {
+    setTimeout, clearTimeout,
     window: { __ModuleLoader__: { load: ({ factory }) => { result = factory(createRequire(import.meta.url)) } } },
   })
   return result
@@ -57,6 +60,7 @@ test('the dedicated settings page and model labels share one Remote and survive 
     assert.match(pageMarkup, /Codex 组件/)
     assert.ok(ctx.typert.remotes.get('workbuddyProvider/command'))
     assert.ok(ctx.typert.remotes.get('codexProvider/command'))
+    assert.ok(ctx.typert.remotes.get('codexProvider/quota'))
     assert.equal(typeof ctx.remote.settings.describe, 'function')
     assert.equal(typeof ctx.remote.credentials.set, 'function')
     const workbuddy = cards.find(entry => entry.options.id === 'workbuddy')
@@ -73,13 +77,59 @@ test('the dedicated settings page and model labels share one Remote and survive 
       const labelMarkup = renderToStaticMarkup(createElement(modelLabel.component, {
         provider: { id: 'codex' }, model: { id: 'gpt-6.1-sol', name: 'GPT-6.1-Sol' }, placement,
       }))
-      assert.match(labelMarkup, /<svg[^>]*fill="currentColor"/)
+      assert.match(labelMarkup, /<svg/)
       assert.ok(labelMarkup.indexOf('<svg') < labelMarkup.indexOf('GPT-6.1-Sol'))
     }
     const otherLabel = renderToStaticMarkup(createElement(modelLabel.component, {
       provider: { id: 'other' }, model: { id: 'gpt-6.1-sol' },
     }))
     assert.doesNotMatch(otherLabel, /<svg/)
+
+    const quotaEntry = ctx.slots.entries('conversation.session.header.utilities').find(entry => entry.options.id === 'codex-quota')
+    assert.equal(typeof quotaEntry.inject().read, 'function')
+    const listeners = new Set()
+    let selected = 'workbuddy'
+    const source = { getSnapshot: () => ({ current: { provider: selected } }),
+      subscribe: listener => { listeners.add(listener); return () => listeners.delete(listener) } }
+    const calls = []
+    const quotaView = used => parseQuota({ rate_limit: {
+      primary_window: { used_percent: used, limit_window_seconds: 18000, reset_at: 2000000000 },
+      secondary_window: { used_percent: 8, limit_window_seconds: 604800 },
+    } })
+    let load = async () => quotaView(26)
+    const props = { sessionId: 'one', selection: id => id === 'one' ? source : {
+      getSnapshot: () => ({ current: { provider: 'workbuddy' } }), subscribe: () => () => {},
+    }, read: async force => { calls.push(force); return load() } }
+    let badge
+    const choose = async provider => { await act(async () => { selected = provider; listeners.forEach(listener => listener()) }) }
+    try {
+      await act(async () => { badge = create(createElement(quotaEntry.component, props)) })
+      assert.equal(badge.toJSON(), null)
+      assert.deepEqual(calls, [])
+      await choose('codex')
+      assert.match(badge.root.findByType('span').children.join(''), /^5h 74% · 周 92%$/)
+      const refresh = badge.root.findByProps({ 'aria-label': 'Codex 剩余额度' })
+      assert.match(refresh.props.title, /重置/)
+      load = async () => quotaView(40)
+      await act(async () => { refresh.props.onClick({ stopPropagation() {} }) })
+      assert.deepEqual(calls, [false, true])
+      assert.match(JSON.stringify(badge.toJSON()), /5h 60%/)
+
+      await act(async () => { badge.update(createElement(quotaEntry.component, { ...props, sessionId: 'two' })) })
+      assert.equal(badge.toJSON(), null)
+      assert.deepEqual(calls, [false, true])
+      await act(async () => { badge.update(createElement(quotaEntry.component, props)) })
+      let finishOld
+      await choose('workbuddy')
+      load = () => new Promise(resolve => { finishOld = resolve })
+      await choose('codex')
+      await choose('workbuddy')
+      load = async () => quotaView(26)
+      await choose('codex')
+      await act(async () => { finishOld(quotaView(99)) })
+      assert.match(JSON.stringify(badge.toJSON()), /5h 74%/)
+    } finally { if (badge) await act(async () => badge.unmount()) }
+    assert.equal(listeners.size, 0)
 
     const workbuddyRuntime = [...ctx.registry.values()].find(runtime => runtime.name === 'workbuddy-component-settings')
     await [...workbuddyRuntime.fibers][0].dispose()
@@ -89,6 +139,7 @@ test('the dedicated settings page and model labels share one Remote and survive 
     await providerFiber.dispose()
     assert.equal(ctx.typert.remotes.get('workbuddyProvider/command'), undefined)
     assert.equal(ctx.typert.remotes.get('codexProvider/command'), undefined)
+    assert.equal(ctx.typert.remotes.get('codexProvider/quota'), undefined)
     assert.deepEqual(ctx.slots.entries('settings.section'), [])
     assert.deepEqual(ctx.slots.entries('conversation.input.model.label').map(entry => entry.component), [builtIn])
     await ctx.plugin(provider).await()
