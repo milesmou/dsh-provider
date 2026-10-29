@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Component-based model providers for DeepSeek Harness, with WorkBuddy and Codex support.",
   "repository": {
     "type": "git",
@@ -26,13 +26,15 @@
     "./locale/*.json": "./locale/*.json",
     "./typert": "./lib/remote.js",
     "./components/workbuddy": {
-      "types": "./lib/components/workbuddy/index.d.ts",
-      "default": "./lib/components/workbuddy/index.js"
+      "types": "./lib/components/workbuddy/entry.d.ts",
+      "default": "./lib/components/workbuddy/entry.js"
     },
+    "./components/workbuddy/locale/*.json": "./locale/workbuddy/*.json",
     "./components/codex": {
       "types": "./lib/components/codex/index.d.ts",
       "default": "./lib/components/codex/index.js"
-    }
+    },
+    "./components/codex/locale/*.json": "./locale/codex/*.json"
   },
   "files": [
     "lib",
@@ -40,7 +42,7 @@
     "examples",
     "README.md",
     "LICENSE",
-    "locale/*.json",
+    "locale",
     "THIRD_PARTY_NOTICES.md",
     "docs/components.md"
   ],
@@ -94,9 +96,11 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.6",
     "@deepseek-ai/dsh-api-gateway": "0.2.1-rc.2",
     "@deepseek-ai/dsh-api-remotes": "0.2.1-rc.2",
     "@deepseek-ai/dsh-api-settings-controller": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-app-boot": "0.2.1-rc.2",
     "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",

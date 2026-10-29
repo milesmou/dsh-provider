@@ -10,7 +10,7 @@ import { join } from 'node:path'
 const home = mkdtempSync(join(tmpdir(), 'dsh-provider-test-home-'))
 mkdirSync(join(home, 'storages'), { recursive: true })
 process.env.DSH_HOME = home
-// Root composition also mounts Codex. Keep test discovery away from real logins.
+// Bundle composition also mounts Codex. Keep test discovery away from real logins.
 export const CODEX_TEST_HOME = join(home, 'codex')
 process.on('exit', () => {
   try { rmSync(home, { recursive: true, force: true }) } catch { /* best effort */ }

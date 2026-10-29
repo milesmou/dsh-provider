@@ -1,3 +1,5 @@
 - insert:
     - id: dsh-provider
-      name: dsh-provider
+      name: dsh-provider/components/workbuddy
+    - id: dsh-provider-codex
+      name: dsh-provider/components/codex

@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Codex",
+    "description": "读取本机 Codex 的 ChatGPT 登录态，访问 Codex 模型。"
+  }
+}

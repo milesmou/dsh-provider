@@ -2,7 +2,7 @@
 
 ## 简介
 
-DeepSeek Harness 的组件化模型接入插件。提供 **WorkBuddy 组件**（本机/浏览器登录及 CodeBuddy API Key）和 **Codex 组件**（本机 ChatGPT 登录态）。
+DeepSeek Harness 的组件化模型接入插件。提供 **CodeBuddy 组件**（WorkBuddy 本机/浏览器登录及 CodeBuddy API Key）和 **Codex 组件**（本机 ChatGPT 登录态）。两个组件在插件详情页单独列出，可分别启用或停用。
 
 支持流式输出、思考内容、DSH 工具调用和启动时获取模型列表。WorkBuddy 接入参考 [magpie](https://github.com/yetone/magpie)。组件扩展方式见 [组件说明](docs/components.md)。
 
@@ -18,9 +18,11 @@ DeepSeek Harness 的组件化模型接入插件。提供 **WorkBuddy 组件**（
 github:milesmou/dsh-provider#main
 ```
 
-若已安装旧插件，先移除旧安装项，再安装上述来源并重启 DSH。密钥或插件浏览器登录需重新配置。仓库包含预编译文件，安装无需运行构建脚本。
+仓库包含预编译文件，安装无需运行构建脚本。安装或更新后重启 DSH，在插件详情页应看到 **CodeBuddy** 和 **Codex** 两个组件。
 
-**2. 配置 WorkBuddy 组件**
+已有 CodeBuddy 的 `dsh-provider` 条目 ID、`workbuddy` 配置节点及凭据存储保持不变。若旧版用户配置显式指定 `name: dsh-provider`，将该字段改为 `name: dsh-provider/components/workbuddy`，即可使用组件自己的显示名称，其他配置无需修改。
+
+**2. 配置 CodeBuddy 组件**
 
 打开 **设置 → 模型 → WorkBuddy 组件**：
 
@@ -34,7 +36,7 @@ github:milesmou/dsh-provider#main
 
 在运行 DSH 的同一台机器、同一系统用户下，先运行 `codex login`，使用 ChatGPT 账号登录。打开 **设置 → 模型 → Codex 组件**，点击 **刷新登录态和模型**，再在对话模型选择器中选择 Codex 的模型。
 
-- 自动读取 `CODEX_HOME/auth.json`，未设置 `CODEX_HOME` 时读取 `~/.codex/auth.json`。也可通过组件的 `codex.codexHome` 配置指定目录。
+- 自动读取 `CODEX_HOME/auth.json`，未设置 `CODEX_HOME` 时读取 `~/.codex/auth.json`。也可在 `dsh-provider-codex` 条目的 `config.codexHome` 指定目录，示例见 [配置文件](examples/cordis.patch.yml)。
 - 需要文件形式的 ChatGPT 登录凭据；若使用系统钥匙串，在 Codex 的 `config.toml` 设置 `cli_auth_credentials_store = "file"` 后重新登录。不读取 API Key。
 - 启动和手动刷新时获取 Codex 模型目录；网络不可用时使用本机 `models_cache.json` 或上次成功的目录，不写死模型 ID。模型目录用于选择，实际可用性以账号权限及请求结果为准。
 - 支持文字、图片、流式回复、思考强度、思考摘要、工具调用与工具结果回传，并保存加密思考内容供后续轮次使用。

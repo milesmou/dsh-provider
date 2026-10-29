@@ -1,5 +1,6 @@
 # Merge into the selected profile's cordis.patch.yml.
 - id: dsh-provider
+  name: dsh-provider/components/workbuddy
   config:
     workbuddy:
       # api: saved CodeBuddy key; workbuddy: desktop/browser sign-in.
@@ -12,7 +13,9 @@
       includeUsage: true
       # Models are discovered automatically from the selected account; there is
       # no manual model list to configure.
-    codex:
-      # Local ChatGPT sign-in from CODEX_HOME, or ~/.codex by default.
-      # codexHome: /path/to/.codex
-      timeoutMs: 180000
+- id: dsh-provider-codex
+  name: dsh-provider/components/codex
+  config:
+    # Local ChatGPT sign-in from CODEX_HOME, or ~/.codex by default.
+    # codexHome: /path/to/.codex
+    timeoutMs: 180000

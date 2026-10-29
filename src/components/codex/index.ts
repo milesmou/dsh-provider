@@ -1,5 +1,6 @@
 import type { Context } from '@deepseek-ai/cordis'
 import { launchEnvironmentOf } from '@deepseek-ai/dsh-launch-environment'
+import type {} from '@deepseek-ai/dsh-settings'
 import type { ImageBlock } from '@deepseek-ai/dsh-llm'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { CodexAdapter } from './adapter.js'
@@ -33,6 +34,9 @@ export function apply(ctx: Context, config: Options): void {
   })
   ctx.llm.registerAdapter([MODEL_ROUTE], adapter)
   ctx.plugin(CodexController, { session, catalog })
+  ctx.inject(['settings'], child => {
+    child.effect(() => child.settings.configure({ auto: false }, ctx.fiber))
+  })
   ctx.effect(() => () => catalog.dispose())
   void catalog.refresh()
 }
