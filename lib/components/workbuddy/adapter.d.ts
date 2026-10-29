@@ -22,6 +22,8 @@ export interface Connection {
      * to the session ledger. Absent when the deployment does not surface credits.
      */
     recordCredit?: (sessionId: string | undefined, credit: number, apiKey: string) => void;
+    /** Capture this request's owning DSH turn; settle once even if streaming fails or is cancelled. */
+    beginTurnCredit?: (sessionId: string | undefined) => ((credit?: number) => void) | undefined;
     fetch?: typeof fetch;
     catalog?: ModelCatalog;
     /** Built-in model shown before/without a catalog result; never user-configured. */

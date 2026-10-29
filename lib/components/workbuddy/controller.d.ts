@@ -1,11 +1,12 @@
 import type { Context } from '@deepseek-ai/cordis';
 import { TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol';
-import type { ControlAction, ControlReply, CreditsReply } from './remote.js';
+import type { ControlAction, ControlReply, CreditsReply, TurnCreditsReply } from './remote.js';
 import type { WorkBuddySession } from './session.js';
 import type { CreditLedger } from './credits.js';
 import type { ModelCatalog } from './catalog.js';
 import type { ModelDirectoryReply } from '../../model-management.js';
 import type { ApiCredits } from './api-credits.js';
+import type { TurnCredits } from './turn-credits.js';
 export declare class WorkBuddyController extends TypertRemoteService {
     private readonly options;
     /** One fetch of the account balance per session; later reads project from it. */
@@ -16,7 +17,9 @@ export declare class WorkBuddyController extends TypertRemoteService {
         enabled(): boolean;
         catalog?(): ModelCatalog | undefined;
         apiCredits?(): Pick<ApiCredits, 'read'> | undefined;
+        turnCredits?: TurnCredits;
     });
+    turnCredits(sessionId: string, turn: number): Promise<TurnCreditsReply>;
     models(refresh: boolean): Promise<ModelDirectoryReply>;
     command(action: ControlAction): Promise<ControlReply>;
     /**

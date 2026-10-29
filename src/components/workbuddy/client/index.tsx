@@ -7,6 +7,7 @@ import { WorkBuddyCard } from './provider-card.js'
 import type { ConnectionActions } from './provider-card.js'
 import type { CredentialActions } from './card.js'
 import { CreditsBadge } from './credits-badge.js'
+import { TurnCreditsBadge } from './turn-credits.js'
 import type { SelectionSource } from './credits-badge.js'
 import { API_KEY_REF } from '../credential.js'
 import { SETTINGS_NAMESPACE } from '../identity.js'
@@ -19,6 +20,23 @@ export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings
 export function apply(ctx: Context): void {
   ctx.inject(['remote.workbuddyProvider'], mountCard)
   ctx.inject(['remote.workbuddyProvider', 'modelDirectories'], mountCredits)
+  ctx.inject(['remote.workbuddyProvider'], mountTurnCredits)
+}
+
+function mountTurnCredits(ctx: Context): void {
+  const turnCredits = async (sessionId: string, turn: number) => {
+    const result = await ctx.remote.workbuddyProvider.turnCredits(sessionId, turn)
+    if (!result.ok) throw new Error('Turn credits unavailable')
+    return result.value
+  }
+  const slots = ctx.slots as unknown as {
+    inject(name: string, callback: () => () => void): void
+    register(options: Record<string, unknown>, component: unknown): () => void
+  }
+  slots.inject('conversation.chat.turnTail', () => slots.register({
+    name: 'conversation.chat.turnTail', id: 'workbuddy-turn-credits', order: 20,
+    inject: () => ({ turnCredits }),
+  }, TurnCreditsBadge))
 }
 
 /** Structural slice of the session model-selection service this component reads. */

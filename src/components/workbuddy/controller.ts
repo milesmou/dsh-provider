@@ -2,7 +2,7 @@ import type { Context } from '@deepseek-ai/cordis'
 import { Remote, TypertRemoteService } from '@deepseek-ai/dsh-typert-protocol'
 import { LlmError } from '@deepseek-ai/dsh-llm'
 import { Action } from './remote.js'
-import type { ControlAction, ControlReply, CreditsReply } from './remote.js'
+import type { ControlAction, ControlReply, CreditsReply, TurnCreditsReply } from './remote.js'
 import type { WorkBuddySession } from './session.js'
 import { projectRemain } from './credits.js'
 import type { CreditLedger, SessionBalance } from './credits.js'
@@ -10,6 +10,7 @@ import type { ModelCatalog } from './catalog.js'
 import { modelDirectory } from '../../model-management.js'
 import type { ModelDirectoryReply } from '../../model-management.js'
 import type { ApiCredits } from './api-credits.js'
+import type { TurnCredits } from './turn-credits.js'
 
 export class WorkBuddyController extends TypertRemoteService {
   /** One fetch of the account balance per session; later reads project from it. */
@@ -21,8 +22,15 @@ export class WorkBuddyController extends TypertRemoteService {
     enabled(): boolean
     catalog?(): ModelCatalog | undefined
     apiCredits?(): Pick<ApiCredits, 'read'> | undefined
+    turnCredits?: TurnCredits
   }) {
     super(ctx, 'workbuddyProvider')
+  }
+
+  @Remote
+  async turnCredits(sessionId: string, turn: number): Promise<TurnCreditsReply> {
+    if (typeof sessionId !== 'string' || !Number.isSafeInteger(turn) || turn < 0) throw new TypeError('Invalid turn')
+    return this.options.turnCredits?.read(sessionId, turn) ?? { tracked: false }
   }
 
   @Remote

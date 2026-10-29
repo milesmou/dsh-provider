@@ -16,6 +16,7 @@ import { SETTINGS_NAMESPACE, MODEL_ROUTE } from './identity.js'
 import { WorkBuddySession, SITES } from './session.js'
 import type { WorkBuddyRegion } from './session.js'
 import { CreditLedger } from './credits.js'
+import { TurnCredits } from './turn-credits.js'
 import { WorkBuddyController } from './controller.js'
 import { ApiCredits } from './api-credits.js'
 
@@ -64,6 +65,9 @@ export function apply(ctx: Context, config: PluginConfig): void {
   const sessions = new Map<WorkBuddyRegion, WorkBuddySession>()
   const ledgerFile = join(resolveDshHome(), 'storages', 'dsh-provider-credits.json')
   const ledger = new CreditLedger(ledgerFile)
+  const turnCredits = new TurnCredits(new CreditLedger(join(resolveDshHome(), 'storages', 'dsh-provider-turn-credits.json')))
+  ctx.on('session/event', (session, event) => turnCredits.observe(String(session.id), event))
+  ctx.on('session/disposed', session => turnCredits.forget(String(session.id)))
   let catalog: ModelCatalog | undefined
   let apiCredits: ApiCredits | undefined
   let adapter: CodeBuddyAdapter
@@ -112,6 +116,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
     }
     const models = baselineModels(mode.get(), workbuddyRegion.get())
     connection.fallback = models
+    connection.beginTurnCredit = sessionId => turnCredits.begin(sessionId)
     connection.hiddenModels = () => hiddenModels.get()
     catalog = new ModelCatalog(models, connection, () => ctx.emit('llm/adapters-updated'), () => contextWindow.get())
     adapter = new CodeBuddyAdapter(structuredClone(options), { ...connection, catalog })
@@ -120,7 +125,7 @@ export function apply(ctx: Context, config: PluginConfig): void {
   rebuild()
   ctx.llm.registerAdapter([MODEL_ROUTE], new SwitchingAdapter(() => adapter))
   ctx.plugin(WorkBuddyController, { session, ledger, catalog: () => catalog, enabled: () => mode.get() === 'workbuddy',
-    apiCredits: () => apiCredits })
+    apiCredits: () => apiCredits, turnCredits })
   ctx.on('loader/volatile-update', paths => {
     if (paths.some(path => path.at(-1) === 'hiddenModels')) ctx.emit('llm/adapters-updated')
   })
@@ -136,10 +141,10 @@ export function apply(ctx: Context, config: PluginConfig): void {
     if (selection !== mode.get() + ':' + workbuddyRegion.get()) rebuild()
     ctx.emit('llm/adapters-updated')
   })
-  ctx.effect(() => () => {
+  ctx.effect(() => async () => {
     catalog?.dispose()
     apiCredits?.dispose()
     for (const value of sessions.values()) value.dispose()
-    void ledger.persist()
+    await Promise.all([turnCredits.dispose(), ledger.persist()])
   })
 }

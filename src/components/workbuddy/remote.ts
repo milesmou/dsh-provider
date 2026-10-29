@@ -24,6 +24,8 @@ const Credits = z.object({
   issue: z.string().optional(),
 })
 export type CreditsReply = z.infer<typeof Credits>
+const TurnCredits = z.object({ tracked: z.boolean(), used: z.number().nonnegative().optional(), partial: z.boolean().optional() })
+export type TurnCreditsReply = z.infer<typeof TurnCredits>
 const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,
   typeSymbol: 'dsh-provider#workbuddy:' + name, create: () => schema,
   jsonSchema: z.toJSONSchema(schema),
@@ -31,6 +33,7 @@ const codec = (schema: z.ZodType, name: string) => ({ mode: 'strict' as const,
 const actionCodec = codec(Action, 'action')
 const sessionIdCodec = codec(z.string(), 'sessionId')
 const refreshCodec = codec(z.boolean(), 'refresh')
+const turnCodec = codec(z.number().int().nonnegative(), 'turn')
 export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods: {
   'workbuddyProvider/models': {
     service: 'workbuddyProvider', invocation: { kind: 'direct' },
@@ -50,6 +53,14 @@ export const REMOTE = createTypertRemoteInfo({ package: 'dsh-provider', methods:
     ],
     result: codec(Credits, 'credits'),
   },
+  'workbuddyProvider/turnCredits': {
+    service: 'workbuddyProvider', invocation: { kind: 'direct' },
+    parameters: [
+      { name: 'sessionId', source: 'json', codec: sessionIdCodec, strictCodec: sessionIdCodec },
+      { name: 'turn', source: 'json', codec: turnCodec, strictCodec: turnCodec },
+    ],
+    result: codec(TurnCredits, 'turnCredits'),
+  },
 } }, z)
 export default REMOTE
 
@@ -58,6 +69,7 @@ declare module '@deepseek-ai/dsh-typert-protocol' {
     workbuddyProvider: {
       command(action: ControlAction): Promise<RemoteResult<ControlReply>>
       credits(sessionId: string, refresh: boolean): Promise<RemoteResult<CreditsReply>>
+      turnCredits(sessionId: string, turn: number): Promise<RemoteResult<TurnCreditsReply>>
       models(refresh: boolean): Promise<RemoteResult<ModelDirectoryReply>>
     }
   }

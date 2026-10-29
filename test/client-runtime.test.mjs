@@ -37,6 +37,7 @@ test('the dedicated settings page and model labels share one Remote and survive 
       'settings.models.footer': { kind: 'list', scope: 'root' },
       'conversation.input.model.label': { kind: 'single', scope: 'session' },
       'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
+      'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
     } }, () => null)
     // DSH's built-in DeepSeek label occupies the slot's default priority.
     const builtIn = () => null
@@ -174,13 +175,55 @@ test('the dedicated settings page and model labels share one Remote and survive 
     } finally { if (creditBadge) await act(async () => creditBadge.unmount()) }
     assert.equal(creditListeners.size, 0)
 
+    const turnEntries = ctx.slots.entries('conversation.chat.turnTail')
+    assert.deepEqual(turnEntries.map(entry => entry.options.id), ['workbuddy-turn-credits'])
+    assert.ok(ctx.typert.remotes.get('workbuddyProvider/turnCredits'))
+    const turnEntry = turnEntries[0]
+    const turnCalls = []
+    let turnLoad = async () => ({ tracked: true, used: 0.000001, partial: false })
+    const turnProps = { sessionId: 'one', turn: { turn: 1, status: 'open' },
+      turnCredits: async (...args) => { turnCalls.push(args); return turnLoad() } }
+    let turnBadge
+    try {
+      await act(async () => { turnBadge = create(createElement(turnEntry.component, turnProps)) })
+      assert.equal(turnBadge.toJSON(), null)
+      assert.deepEqual(turnCalls, [])
+      const closed = { ...turnProps, turn: { turn: 1, status: 'closed' } }
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, closed)) })
+      assert.match(JSON.stringify(turnBadge.toJSON()), /本轮消耗 0.000001 积分/)
+      assert.deepEqual(turnCalls, [['one', 1]])
+      // A newer turn can lack complete provider data without turning it into zero use.
+      turnLoad = async () => ({ tracked: true, used: 0.03, partial: true })
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, { ...closed, turn: { turn: 2, status: 'closed' } })) })
+      assert.match(JSON.stringify(turnBadge.toJSON()), /本轮已知消耗 0.03 积分（部分）/)
+      turnLoad = async () => ({ tracked: true, partial: true })
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, { ...closed, turn: { turn: 3, status: 'closed' } })) })
+      assert.match(JSON.stringify(turnBadge.toJSON()), /本轮积分不可用/)
+      // Explicit zero credit remains distinct from absent data.
+      turnLoad = async () => ({ tracked: true, used: 0, partial: false })
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, { ...closed, turn: { turn: 4, status: 'closed' } })) })
+      assert.match(JSON.stringify(turnBadge.toJSON()), /本轮消耗 0 积分/)
+      let finishTurn
+      turnLoad = () => new Promise(resolve => { finishTurn = resolve })
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, { ...closed, turn: { turn: 5, status: 'closed' } })) })
+      turnLoad = async () => ({ tracked: false })
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, { ...closed, sessionId: 'codex-session' })) })
+      await act(async () => { finishTurn({ tracked: true, used: 99, partial: false }) })
+      assert.equal(turnBadge.toJSON(), null, 'late replies never cross session or turn boundaries')
+      turnLoad = async () => { throw new Error('private-host-detail') }
+      await act(async () => { turnBadge.update(createElement(turnEntry.component, { ...closed, sessionId: 'other' })) })
+      assert.equal(turnBadge.toJSON(), null, 'a failed lookup cannot attribute WorkBuddy spend to an unknown provider')
+    } finally { if (turnBadge) await act(async () => turnBadge.unmount()) }
+
     const workbuddyRuntime = [...ctx.registry.values()].find(runtime => runtime.name === 'workbuddy-component-settings')
     await [...workbuddyRuntime.fibers][0].dispose()
     assert.deepEqual(ctx.slots.entries(cardsSlot).map(entry => entry.options.id), ['codex'])
+    assert.deepEqual(ctx.slots.entries('conversation.chat.turnTail'), [])
     assert.ok(ctx.slots.entries('conversation.input.model.label').includes(modelLabel))
     assert.ok(ctx.slots.entries('conversation.input.model.label').some(entry => entry.component === builtIn))
     await providerFiber.dispose()
     assert.equal(ctx.typert.remotes.get('workbuddyProvider/command'), undefined)
+    assert.equal(ctx.typert.remotes.get('workbuddyProvider/turnCredits'), undefined)
     assert.equal(ctx.typert.remotes.get('codexProvider/command'), undefined)
     assert.equal(ctx.typert.remotes.get('codexProvider/quota'), undefined)
     assert.deepEqual(ctx.slots.entries('settings.section'), [])
@@ -188,5 +231,6 @@ test('the dedicated settings page and model labels share one Remote and survive 
     await ctx.plugin(provider).await()
     await new Promise(setImmediate)
     assert.deepEqual(ctx.slots.entries(cardsSlot).map(entry => entry.options.id).sort(), ['codex', 'workbuddy'])
+    assert.deepEqual(ctx.slots.entries('conversation.chat.turnTail').map(entry => entry.options.id), ['workbuddy-turn-credits'])
   } finally { await ctx.fiber.dispose() }
 })

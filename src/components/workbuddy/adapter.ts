@@ -33,6 +33,8 @@ export interface Connection {
    * to the session ledger. Absent when the deployment does not surface credits.
    */
   recordCredit?: (sessionId: string | undefined, credit: number, apiKey: string) => void
+  /** Capture this request's owning DSH turn; settle once even if streaming fails or is cancelled. */
+  beginTurnCredit?: (sessionId: string | undefined) => ((credit?: number) => void) | undefined
   fetch?: typeof fetch
   catalog?: ModelCatalog
   /** Built-in model shown before/without a catalog result; never user-configured. */
@@ -269,6 +271,8 @@ export class CodeBuddyAdapter extends LlmAdapter {
     let finish: string | null = null
     let usage: TokenUsage | undefined
     let credit: number | undefined
+    const sessionId = options.sessionId ? String(options.sessionId) : undefined
+    const settleTurnCredit = options.purpose ? undefined : this.connection.beginTurnCredit?.(sessionId)
     try {
       const response = await send()
       stream = response
@@ -277,7 +281,7 @@ export class CodeBuddyAdapter extends LlmAdapter {
         if (chunk.usage) {
           const raw = chunk.usage as unknown as Record<string, unknown>
           usage = usageOf(raw)
-          if (typeof raw.credit === 'number' && Number.isFinite(raw.credit)) credit = raw.credit
+          if (typeof raw.credit === 'number' && Number.isFinite(raw.credit) && raw.credit >= 0) credit = raw.credit
         }
         const choice = chunk.choices.find(item => item.index === 0)
         if (!choice) continue
@@ -330,13 +334,14 @@ export class CodeBuddyAdapter extends LlmAdapter {
         yield { type: 'block-end', index: state.index, block }
       }
       if (usage) yield { type: 'usage', usage }
-      if (credit !== undefined) this.connection.recordCredit?.(options.sessionId ? String(options.sessionId) : undefined, credit, apiKey)
       if (finish === 'content_filter') throw new LlmError('CodeBuddy: provider filtered this response.', 'CONTENT_FILTER')
       yield { type: 'finish', reason: { kind: finish === 'length' ? 'max-tokens' : tools.size || finish === 'tool_calls' ? 'tool-calls' : 'stop' } }
     } catch (error) {
       if (deadline.aborted && !options.signal?.aborted) throw new LlmError('CodeBuddy: request exceeded timeoutMs.', 'TIMEOUT')
       throw failureOf(error, apiKey, options.signal?.aborted ?? false, this.connection.providerName ?? 'CodeBuddy API Key')
     } finally {
+      if (credit !== undefined) this.connection.recordCredit?.(sessionId, credit, apiKey)
+      settleTurnCredit?.(credit)
       if (stream && 'controller' in stream) stream.controller.abort()
     }
   }
