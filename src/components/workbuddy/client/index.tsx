@@ -16,6 +16,12 @@ import { modelManagementActions } from '../../../client/model-manager.js'
 export const name = 'workbuddy-component-settings'
 export const inject = ['slots', 'remote', 'remote.credentials', 'remote.settings']
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    'dsh-provider/credits-updated'(sessionId: string): void
+  }
+}
+
 /** The standard credentials Remote handles storage; environment sources are ignored. */
 export function apply(ctx: Context): void {
   ctx.inject(['remote.workbuddyProvider'], mountCard)
@@ -27,6 +33,7 @@ function mountTurnCredits(ctx: Context): void {
   const turnCredits = async (sessionId: string, turn: number) => {
     const result = await ctx.remote.workbuddyProvider.turnCredits(sessionId, turn)
     if (!result.ok) throw new Error('Turn credits unavailable')
+    if (result.value.tracked) ctx.emit('dsh-provider/credits-updated', sessionId)
     return result.value
   }
   const slots = ctx.slots as unknown as {
@@ -46,6 +53,8 @@ interface ModelDirectories {
 
 /** Register the session-header credit badge; the host read pairs ledger spend with the account balance. */
 function mountCredits(ctx: Context): void {
+  const subscribeCredits = (sessionId: string, listener: () => void) =>
+    ctx.on('dsh-provider/credits-updated', changed => { if (changed === sessionId) listener() })
   const credits = async (sessionId: string, refresh = false) => {
     const result = await ctx.remote.workbuddyProvider.credits(sessionId, refresh)
     if (!result.ok) throw new Error('WorkBuddy credits unavailable')
@@ -66,7 +75,7 @@ function mountCredits(ctx: Context): void {
   }
   slots.inject('conversation.session.header.utilities', () => slots.register({
     name: 'conversation.session.header.utilities', id: 'workbuddy-credits', order: -20,
-    inject: () => ({ credits, selection }),
+    inject: () => ({ credits, selection, subscribeCredits }),
   }, CreditsBadge))
 }
 

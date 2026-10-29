@@ -143,7 +143,7 @@ test('the dedicated settings page and model labels share one Remote and survive 
     const creditListeners = new Set()
     let creditProvider = 'workbuddy'
     let creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 0.03, accountRemain: 79.97, updatedAt: 1234 })
-    const creditProps = { sessionId: 'one', selection: () => ({
+    const creditProps = { sessionId: 'one', subscribeCredits: creditsEntry.inject().subscribeCredits, selection: () => ({
       getSnapshot: () => ({ current: { provider: creditProvider } }),
       subscribe: listener => { creditListeners.add(listener); return () => creditListeners.delete(listener) },
     }), credits: async () => creditLoad() }
@@ -153,6 +153,19 @@ test('the dedicated settings page and model labels share one Remote and survive 
       assert.match(JSON.stringify(creditBadge.toJSON()), /本会话消耗：0.03/)
       assert.match(JSON.stringify(creditBadge.toJSON()), /剩余 79.97/)
       assert.equal(creditBadge.root.findByProps({ 'aria-label': 'CodeBuddy API 积分' }).props.title.includes('更新时间'), true)
+      assert.match(creditBadge.root.findByProps({ 'aria-label': 'CodeBuddy API 积分' }).props.title, /生成会话标题、上下文压缩等后台请求/)
+      creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 1.63, accountRemain: 78.37 })
+      await act(async () => { ctx.emit('dsh-provider/credits-updated', 'two') })
+      assert.equal(creditBadge.root.findAllByType('span')[1].children.join(''), '会话总计 0.03')
+      await act(async () => { ctx.emit('dsh-provider/credits-updated', 'one') })
+      assert.equal(creditBadge.root.findAllByType('span')[1].children.join(''), '会话总计 1.63', 'a settled turn refreshes the matching header without waiting for its polling interval')
+      let finishOldTotal
+      creditLoad = () => new Promise(resolve => { finishOldTotal = resolve })
+      await act(async () => { ctx.emit('dsh-provider/credits-updated', 'one') })
+      creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 2, accountRemain: 78 })
+      await act(async () => { ctx.emit('dsh-provider/credits-updated', 'one') })
+      await act(async () => { finishOldTotal({ enabled: true, mode: 'api', sessionUsed: 1.63, accountRemain: 78.37 }) })
+      assert.equal(creditBadge.root.findAllByType('span')[1].children.join(''), '会话总计 2', 'a notification during an in-flight read queues a fresh total')
       creditLoad = async () => ({ enabled: true, mode: 'api', sessionUsed: 0.03, accountRemain: 79.97, stale: true, issue: '余额更新失败' })
       await act(async () => { creditBadge.root.findByProps({ 'aria-label': '刷新余额' }).props.onClick({ stopPropagation() {} }) })
       assert.match(JSON.stringify(creditBadge.toJSON()), /（缓存）/)
@@ -191,6 +204,7 @@ test('the dedicated settings page and model labels share one Remote and survive 
       const closed = { ...turnProps, turn: { turn: 1, status: 'closed' } }
       await act(async () => { turnBadge.update(createElement(turnEntry.component, closed)) })
       assert.match(JSON.stringify(turnBadge.toJSON()), /本轮消耗 0.000001 积分/)
+      assert.match(turnBadge.root.findByProps({ 'aria-label': '本轮积分消耗' }).props.title, /不含生成会话标题、上下文压缩等后台扣费/)
       assert.deepEqual(turnCalls, [['one', 1]])
       // A newer turn can lack complete provider data without turning it into zero use.
       turnLoad = async () => ({ tracked: true, used: 0.03, partial: true })

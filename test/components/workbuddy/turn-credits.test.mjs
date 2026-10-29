@@ -108,6 +108,21 @@ test('aborted streams retain unknown charges and background purposes do not join
   assert.deepEqual(turns.read('one', 1), { tracked: true, partial: true })
 })
 
+test('session totals include background title charges while the turn discloses only its reply', async () => {
+  const turns = new TurnCredits(new CreditLedger())
+  const ledger = new CreditLedger()
+  turns.observe('one', start(1))
+  const charges = [1.41, 0.22]
+  const adapter = new CodeBuddyAdapter(Config({}), { baseURL: 'https://copilot.tencent.com/v2',
+    resolveApiKey: async () => 'test-secret', fetch: async () => completion(charges.shift()),
+    beginTurnCredit: id => turns.begin(id), recordCredit: (id, value) => ledger.add(id, value) })
+  await drain(adapter.stream(options))
+  turns.observe('one', end(1))
+  await drain(adapter.stream({ ...options, purpose: 'session-title' }))
+  assert.equal(ledger.of('one'), 1.63)
+  assert.deepEqual(turns.read('one', 1), { tracked: true, partial: false, used: 1.41 })
+})
+
 test('real session events and provider lifecycle bind requests to turns and publish only credit figures', async t => {
   const ctx = new Context()
   let key = 'old-test-key'

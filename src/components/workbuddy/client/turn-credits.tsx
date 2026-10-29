@@ -33,7 +33,7 @@ export function TurnCreditsBadge({ sessionId, turn, turnCredits }: TurnCreditsPr
   const text = view.used === undefined ? '本轮积分不可用'
     : view.partial ? `本轮已知消耗 ${view.used} 积分（部分）` : `本轮消耗 ${view.used} 积分`
   const title = view.partial ? '部分请求未返回有效扣费数据，无法确认本轮完整积分；已知消耗仅包含服务端返回的实际积分。'
-      : '本轮所有 WorkBuddy / CodeBuddy 模型请求（含工具调用后续请求）的实际积分之和。'
+      : '本轮回复及工具调用后续请求的实际积分之和；不含生成会话标题、上下文压缩等后台扣费，后台扣费计入右上角的会话总计。'
   return <span aria-label="本轮积分消耗" title={title}
     style={{ fontSize: 11, lineHeight: '20px', color: 'var(--dsw-alias-label-secondary, CanvasText)' }}>{text}</span>
 }

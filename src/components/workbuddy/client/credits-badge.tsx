@@ -27,6 +27,8 @@ export interface CreditsBadgeProps {
   credits: (sessionId: string, refresh?: boolean) => Promise<CreditsView>
   /** Injected access to a session's model-selection store; absent elsewhere. */
   selection?: (sessionId: string) => SelectionSource | undefined
+  /** Session-local notification after a completed turn's charges have settled on the Host. */
+  subscribeCredits?: (sessionId: string, listener: () => void) => () => void
 }
 
 const REFRESH_MS = 5000
@@ -58,7 +60,7 @@ const refreshButton: CSSProperties = {
  * the account balance. The balance is fetched once per session and then
  * projected locally; a small button re-fetches it on demand.
  */
-export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProps) {
+export function CreditsBadge({ sessionId, credits, selection, subscribeCredits }: CreditsBadgeProps) {
   const [view, setView] = useState<CreditsView>()
   const [selected, setSelected] = useState<{ sessionId?: string; provider?: string | null; revision?: number }>({})
   const provider = selected.sessionId === sessionId ? selected.provider : undefined
@@ -106,14 +108,25 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
     setView(undefined)
     setRefreshing(false)
     if (!sessionId || provider !== WORKBUDDY_PROVIDER) return
-    let timer: ReturnType<typeof setTimeout>
+    let timer: ReturnType<typeof setTimeout> | undefined
+    let reading = false
+    let queued = false
     const tick = async () => {
-      const next = await readCredits(false)
+      if (reading) { queued = true; return }
+      clearTimeout(timer)
+      reading = true
+      let next: CreditsView | undefined
+      do {
+        queued = false
+        next = await readCredits(false)
+      } while (queued && generation.current === current)
+      reading = false
       if (generation.current === current) timer = setTimeout(() => { void tick() }, next?.mode === 'api' ? 60000 : REFRESH_MS)
     }
+    const unsubscribe = subscribeCredits?.(sessionId, () => { void tick() })
     void tick()
-    return () => { ++generation.current; clearTimeout(timer) }
-  }, [sessionId, readCredits, provider, selectionRevision])
+    return () => { ++generation.current; clearTimeout(timer); unsubscribe?.() }
+  }, [sessionId, readCredits, provider, selectionRevision, subscribeCredits])
 
   // Manual re-fetch of the account balance (the once-per-session snapshot).
   const refresh = async () => {
@@ -130,6 +143,7 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
   const remain = view.accountRemain === undefined ? undefined : fmt(view.accountRemain)
   const title = [
     `本会话消耗：${used} ${view.unit ?? '积分'}`,
+    '会话总计包含所有轮次，以及生成会话标题、上下文压缩等后台请求的扣费；本轮消耗仅统计当轮回复。',
     remain === undefined ? undefined : `账号剩余：${remain} ${view.unit ?? '积分'}`,
     view.accountTotal === undefined ? undefined : `总额度：${fmt(view.accountTotal)} ${view.unit ?? '积分'}`,
     view.plan ? `套餐：${view.plan}` : undefined,
@@ -138,7 +152,7 @@ export function CreditsBadge({ sessionId, credits, selection }: CreditsBadgeProp
   ].filter(Boolean).join('\n')
 
   return <span title={title} style={wrap} aria-label={view.mode === 'api' ? 'CodeBuddy API 积分' : 'WorkBuddy 积分'}>
-    <span>本会话 {used}</span>
+    <span>会话总计 {used}</span>
     <span style={{ opacity: 0.75 }}>· {remain === undefined ? '剩余不可用' : `剩余 ${remain}`}{view.stale ? '（缓存）' : ''}</span>
     <button type="button" onClick={event => { event.stopPropagation(); void refresh() }}
       disabled={refreshing} aria-label="刷新余额" title="刷新余额"
