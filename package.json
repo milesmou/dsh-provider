@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider",
-  "version": "0.3.24",
+  "version": "0.3.25",
   "description": "Component-based model providers for DeepSeek Harness, with WorkBuddy and Codex support.",
   "repository": {
     "type": "git",

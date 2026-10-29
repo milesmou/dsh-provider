@@ -1,52 +1,22 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { runInNewContext } from 'node:vm'
-import { Context } from '@deepseek-ai/cordis'
-import * as gateway from '@deepseek-ai/dsh-api-gateway/client'
-import { TypertRegistry } from '@deepseek-ai/dsh-typert-registry'
-import SETTINGS from '@deepseek-ai/dsh-api-settings-controller/remote'
+import { mountClient, provider } from '../client-harness.mjs'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { act, create } from 'react-test-renderer'
 import { parseQuota } from '../lib/components/codex/quota.js'
 
-async function loadBrowserBundle(file) {
-  let result
-  runInNewContext(await readFile(file, 'utf8'), {
-    setTimeout, clearTimeout,
-    window: { __ModuleLoader__: { load: ({ factory }) => { result = factory(createRequire(import.meta.url)) } } },
-  })
-  return result
-}
-
-const provider = await loadBrowserBundle(new URL('../lib/client.js', import.meta.url))
-const renderer = await loadBrowserBundle(new URL('../node_modules/@deepseek-ai/dsh-client-ui-renderer/lib/client.js', import.meta.url))
 const cardsSlot = 'dsh-provider.settings.cards'
 
 test('the dedicated settings page and model labels share one Remote and survive disposal and reload', async () => {
-  const ctx = new Context()
+  const { ctx, fiber: providerFiber } = await mountClient(async endpoint => {
+    assert.equal(endpoint, 'settings/describe')
+    return { ok: true, value: { namespaces: [{ ns: 'dsh-provider' }, { ns: 'dsh-provider-codex' }] } }
+  })
   try {
-    new TypertRegistry(ctx)
-    ctx.provide('connection', { interactions: 'none', rpc: { open: () => {} }, generation: { getSnapshot: () => undefined } })
-    ctx.provide('modelDirectories', { directoryFor: () => undefined })
-    new renderer.SlotRegistry(ctx)
-    ctx.slots.register({ name: 'root', children: {
-      'settings.section': { kind: 'list', scope: 'root' },
-      'settings.models.footer': { kind: 'list', scope: 'root' },
-      'conversation.input.model.label': { kind: 'single', scope: 'session' },
-      'conversation.session.header.utilities': { kind: 'list', scope: 'session' },
-      'conversation.chat.turnTail': { kind: 'list', scope: 'session' },
-    } }, () => null)
     // DSH's built-in DeepSeek label occupies the slot's default priority.
     const builtIn = () => null
     ctx.slots.register({ name: 'conversation.input.model.label' }, builtIn)
-    await ctx.plugin(gateway).await()
-    await ctx.remote.$mount(SETTINGS)
-    const providerFiber = ctx.plugin(provider)
-    await providerFiber.await()
-    await new Promise(setImmediate)
 
     const cards = ctx.slots.entries(cardsSlot)
     assert.deepEqual(cards.map(entry => entry.options.id).sort(), ['codex', 'workbuddy'])

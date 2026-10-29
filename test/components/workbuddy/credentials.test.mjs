@@ -8,19 +8,8 @@ import { LlmRuntime } from '@deepseek-ai/dsh-llm'
 import { createLaunchEnvironmentSnapshot } from '@deepseek-ai/dsh-launch-environment'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { createElement } from 'react'
-import { readFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { runInNewContext } from 'node:vm'
+import { mountClient } from '../../../client-harness.mjs'
 import * as host from '../../../lib/index.js'
-
-// Exercise the same wrapper used by DSH's browser plugin loader.
-let client
-runInNewContext(await readFile(new URL('../../../lib/client.js', import.meta.url), 'utf8'), {
-  window: { __ModuleLoader__: { load: ({ id, factory }) => {
-    assert.equal(id, 'dsh-provider')
-    client = factory(createRequire(import.meta.url))
-  } } },
-})
 
 test('saved credential changes reach the next model request without a plugin restart', async t => {
   const headers = []
@@ -77,59 +66,43 @@ test('saved credential changes reach the next model request without a plugin res
   } finally { await ctx.fiber.dispose() }
 })
 
-async function clientFixture({ configured = false, writable = true, writeRefused = false, source = 'file' } = {}) {
+async function clientFixture(t, { configured = false, writable = true, writeRefused = false, source = 'file' } = {}) {
   const calls = []
-  const mounts = []
-  let registration
-  let component
   let saved = configured
   let selection = { mode: 'api', workbuddyRegion: 'cn' }
-  const ctx = {
-    effect: () => {},
-    plugin: plugin => { const pending = Promise.resolve(plugin.apply(ctx)); mounts.push(pending); return { await: () => pending } },
-    inject: (services, callback) => { callback(ctx) },
-    get: name => name === 'remote.credentials' ? ctx.remote.credentials : name === 'remote.settings' ? ctx.remote.settings : undefined,
-    remote: {
-      $mount: async () => () => {},
-      settings: {
-        describe: async () => ({ ok: true, value: { writable: true, namespaces: [{ns: 'dsh-provider', value: { workbuddy: selection }, revision: 1}] } }),
-        update: async (ns, value, revision) => {
+  const { ctx } = await mountClient(async (endpoint, args) => {
+    switch (endpoint) {
+      case 'settings/describe':
+        return { ok: true, value: { writable: true, namespaces: [{ ns: 'dsh-provider', value: { workbuddy: selection }, revision: 1 }] } }
+      case 'settings/update': {
+        const { ns, patch: value, expectedRevision: revision } = args
           assert.equal(ns, 'dsh-provider'); assert.equal(revision, 1)
           selection = { ...selection, ...value.workbuddy }
           return { ok: true }
-        },
-        mutate: () => { throw new Error('Secrets must not be written into settings') },
-      },
-      workbuddyProvider: { command: async action => {
-        assert.equal(action, 'status')
+      }
+      case 'workbuddyProvider/command':
+        assert.equal(args.action, 'status')
         return { ok: true, value: { configured: false, issue: '本机凭据已加密' } }
-      } },
-      credentials: {
-        describe: async refs => ({ ok: true, value: { [refs[0]]: { configured: saved, writable, source } } }),
-        set: async (ref, value) => {
+      case 'credentials/describe':
+        return { ok: true, value: { [args.refs[0]]: { configured: saved, writable, source } } }
+      case 'credentials/set': {
+        const { ref, value } = args
           calls.push({ ref, value })
-          if (writeRefused) return { ok: false, error: { message: value } }
+        if (writeRefused) return { ok: false, error: { code: 'credential/rejected', message: value, details: { ref } } }
           saved = true
           source = 'file'
           return { ok: true }
-        },
-      },
-    },
-    slots: {
-      inject: (slot, register) => { register() },
-      register: (options, card) => {
-        if (options.name === 'dsh-provider.settings.cards' && options.id === 'workbuddy') { registration = options; component = card }
-        return () => {}
-      },
-    },
-  }
-  await client.apply(ctx)
-  await Promise.all(mounts)
-  return { ...registration.inject(), calls, component }
+      }
+      default: throw new Error('Unexpected credential test endpoint')
+    }
+  })
+  t.after(() => ctx.fiber.dispose())
+  const registration = ctx.slots.entries('dsh-provider.settings.cards').find(entry => entry.options.id === 'workbuddy')
+  return { ...registration.inject(), calls, component: registration.component }
 }
 
-test('settings card stores a key via credentials Remote and exposes only redacted state', async () => {
-  const fixture = await clientFixture()
+test('settings card stores a key via credentials Remote and exposes only redacted state', async t => {
+  const fixture = await clientFixture(t)
   assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
   await fixture.actions.save('  ck_new_key  ')
   assert.deepEqual(fixture.calls, [{ ref: 'DSH_PROVIDER_WORKBUDDY_API_KEY', value: 'ck_new_key' }])
@@ -138,17 +111,17 @@ test('settings card stores a key via credentials Remote and exposes only redacte
   assert.ok(!JSON.stringify(status).includes('ck_new_key'))
 })
 
-test('settings ignores ambient keys and lets the user save a stored key instead', async () => {
+test('settings ignores ambient keys and lets the user save a stored key instead', async t => {
   for (const source of ['env', 'user-env', 'project-env']) {
-    const fixture = await clientFixture({ configured: true, source })
+    const fixture = await clientFixture(t, { configured: true, source })
     assert.deepEqual({ ...await fixture.actions.status() }, { configured: false, writable: true })
     await fixture.actions.save('ck_saved')
     assert.deepEqual({ ...await fixture.actions.status() }, { configured: true, writable: true })
   }
 })
 
-test('switching to WorkBuddy stores only mode and region and reads its dedicated status namespace', async () => {
-  const fixture = await clientFixture()
+test('switching to WorkBuddy stores only mode and region and reads its dedicated status namespace', async t => {
+  const fixture = await clientFixture(t)
   await fixture.connection.select('workbuddy', 'intl')
   const state = await fixture.connection.status()
   assert.equal(state.mode, 'workbuddy')
@@ -157,8 +130,8 @@ test('switching to WorkBuddy stores only mode and region and reads its dedicated
   assert.equal(fixture.calls.length, 0)
 })
 
-test('context window choice persists through the settings namespace', async () => {
-  const fixture = await clientFixture()
+test('context window choice persists through the settings namespace', async t => {
+  const fixture = await clientFixture(t)
   assert.equal((await fixture.connection.status()).context, 'middle')
   await fixture.connection.context('light')
   assert.equal((await fixture.connection.status()).context, 'light')
@@ -166,8 +139,8 @@ test('context window choice persists through the settings namespace', async () =
   assert.equal((await fixture.connection.status()).context, 'max')
 })
 
-test('settings card rejects invalid keys and does not reflect server error secrets', async () => {
-  const fixture = await clientFixture({ writeRefused: true })
+test('settings card rejects invalid keys and does not reflect server error secrets', async t => {
+  const fixture = await clientFixture(t, { writeRefused: true })
   await assert.rejects(() => fixture.actions.save(''), /Invalid credential/)
   await assert.rejects(() => fixture.actions.save('ck_bad\nkey'), /Invalid credential/)
   assert.equal(fixture.calls.length, 0)
@@ -177,8 +150,8 @@ test('settings card rejects invalid keys and does not reflect server error secre
   })
 })
 
-test('settings card renders a masked API key input with browser autofill disabled', async () => {
-  const fixture = await clientFixture()
+test('settings card renders a masked API key input with browser autofill disabled', async t => {
+  const fixture = await clientFixture(t)
   const html = renderToStaticMarkup(createElement(fixture.component, { actions: fixture.actions }))
   assert.match(html, /type="password"/)
   assert.match(html, /autoComplete="new-password"/)

@@ -2,7 +2,7 @@
 
 ## 简介
 
-DeepSeek Harness 的组件化模型接入插件。提供 **CodeBuddy 组件**（WorkBuddy 本机/浏览器登录及 CodeBuddy API Key）和 **Codex 组件**（本机 ChatGPT 登录态）。两个组件在插件详情页单独列出，可分别启用或停用。
+DeepSeek Harness 的组件化模型接入插件。提供 **CodeBuddy 组件**（WorkBuddy 本机/浏览器登录及 CodeBuddy API Key）和 **Codex 组件**（本机 ChatGPT 登录态）。两个组件在插件详情页单独列出，可分别启用或停用。停用后，模型扩展页中的对应设置、模型图标和会话额度等界面会自动隐藏；重新启用后恢复，已有配置与模型显示偏好保持不变。
 
 支持流式输出、思考内容、DSH 工具调用和启动时获取模型列表。WorkBuddy 接入参考 [magpie](https://github.com/yetone/magpie)。组件扩展方式见 [组件说明](docs/components.md)。
 

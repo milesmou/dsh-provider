@@ -1,60 +1,47 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
-import { runInNewContext } from 'node:vm'
+import { mountClient } from '../client-harness.mjs'
 import { createElement } from 'react'
 import { act, create } from 'react-test-renderer'
 
-let client
-runInNewContext(await readFile(new URL('../lib/client.js', import.meta.url), 'utf8'), {
-  window: { __ModuleLoader__: { load: ({ factory }) => { client = factory(createRequire(import.meta.url)) } } },
-})
 const plain = value => JSON.parse(JSON.stringify(value))
 
-async function fixture() {
+async function fixture(t) {
   const cards = new Map(), writes = [], refreshes = []
   const rows = [{ ns: 'dsh-provider', revision: 1, value: { workbuddy: { mode: 'workbuddy', contextWindow: 'max', hiddenModels: ['future-model'] } } },
     { ns: 'dsh-provider-codex', revision: 1, value: { hiddenModels: [] } }]
   const state = { writable: true, refused: false, offline: false }
   const models = [{ id: 'model-one', name: 'First Model', contextWindow: 500000 }, { id: 'model-two', name: 'Second Model', contextWindow: 272000 }]
   const directory = async refresh => { refreshes.push(refresh); return { ok: true, value: { models } } }
-  const ctx = {
-    effect: () => {},
-    plugin: plugin => { if (['workbuddy-component-settings', 'codex-component-settings'].includes(plugin.name)) plugin.apply(ctx) },
-    inject: (services, callback) => { if (!services.includes('modelDirectories')) callback(ctx) },
-    remote: {
-      $mount: async () => () => {},
-      settings: {
-        describe: async () => {
-          if (state.offline) throw new Error('private-server-message')
-          return { ok: true, value: { writable: state.writable, namespaces: plain(rows) } }
-        },
-        update: async (ns, patch, revision) => {
-          const row = rows.find(row => row.ns === ns)
-          assert.equal(row.revision, revision)
-          writes.push({ ns, patch: plain(patch), revision })
-          if (state.refused) return { ok: false, error: { message: 'private-server-message' } }
-          if (ns === 'dsh-provider') row.value.workbuddy = { ...row.value.workbuddy, ...plain(patch.workbuddy) }
-          else row.value = { ...row.value, ...plain(patch) }
-          row.revision++
-          return { ok: true }
-        },
-      },
-      codexProvider: { command: async () => ({ ok: true, value: { configured: true, models: 2 } }), models: directory },
-      workbuddyProvider: { models: directory },
-    },
-    slots: { inject: (_name, callback) => callback(), register: (options, component) => {
-      if (options.name === 'dsh-provider.settings.cards') cards.set(options.id, { component, props: options.inject() })
-      return () => {}
-    } },
+  const { ctx } = await mountClient(async (endpoint, args) => {
+    if (endpoint === 'settings/describe') {
+      if (state.offline) throw new Error('private-server-message')
+      return { ok: true, value: { writable: state.writable, namespaces: plain(rows) } }
+    }
+    if (endpoint === 'settings/update') {
+      const { ns, patch, expectedRevision: revision } = args
+      const row = rows.find(row => row.ns === ns)
+      assert.equal(row.revision, revision)
+      writes.push({ ns, patch: plain(patch), revision })
+      if (state.refused) return { ok: false, error: { code: 'settings/rejected', message: 'private-server-message', details: { ns } } }
+      if (ns === 'dsh-provider') row.value.workbuddy = { ...row.value.workbuddy, ...plain(patch.workbuddy) }
+      else row.value = { ...row.value, ...plain(patch) }
+      row.revision++
+      return { ok: true }
+    }
+    if (endpoint.endsWith('/models')) return directory(args.refresh)
+    if (endpoint === 'codexProvider/command') return { ok: true, value: { configured: true, models: 2 } }
+    throw new Error(`Unexpected test endpoint: ${endpoint}`)
+  })
+  t.after(() => ctx.fiber.dispose())
+  for (const entry of ctx.slots.entries('dsh-provider.settings.cards')) {
+    cards.set(entry.options.id, { component: entry.component, props: entry.inject() })
   }
-  await client.apply(ctx)
   return { cards, rows, writes, state, refreshes }
 }
 
-test('component model actions merge only their own visibility field using the latest revision', async () => {
-  const f = await fixture()
+test('component model actions merge only their own visibility field using the latest revision', async t => {
+  const f = await fixture(t)
   const workbuddy = f.cards.get('workbuddy').props.modelActions
   const codex = f.cards.get('codex').props.modelActions
   assert.deepEqual(plain((await workbuddy.load(false)).hiddenModels), ['future-model'])
@@ -78,8 +65,8 @@ test('component model actions merge only their own visibility field using the la
   assert.equal(f.writes.length, count)
 })
 
-test('model management searches, hides and restores rows, refreshes, and keeps failed writes unchanged', async () => {
-  const f = await fixture()
+test('model management searches, hides and restores rows, refreshes, and keeps failed writes unchanged', async t => {
+  const f = await fixture(t)
   const card = f.cards.get('codex')
   let renderer
   try {
