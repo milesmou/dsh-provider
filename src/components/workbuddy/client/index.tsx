@@ -32,7 +32,9 @@ function mountModelLabel(ctx: Context): void {
     register(options: Record<string, unknown>, component: unknown): () => void
   }
   slots.inject('conversation.input.model.label', () => slots.register({
-    name: 'conversation.input.model.label',
+    // DSH ships its own default label in this single slot at priority 0.
+    // A distinct priority lets our label shadow it without failing this plugin.
+    name: 'conversation.input.model.label', priority: -20,
   }, ModelNameLabel))
 }
 
