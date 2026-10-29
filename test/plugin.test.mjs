@@ -5,6 +5,7 @@ import { Context } from '@deepseek-ai/cordis'
 import { LlmRuntime } from '@deepseek-ai/dsh-llm'
 import { Loader } from '@deepseek-ai/cordis-plugin-loader'
 import { composeEntries, loadOverlayPatches } from '@deepseek-ai/dsh-app-boot'
+import { ClientModuleRegistry } from '@deepseek-ai/dsh-client-modules'
 import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { spawnSync } from 'node:child_process'
@@ -48,10 +49,11 @@ const bundleEntries = () => composeEntries([loadOverlayPatches('dsh', fileURLToP
 
 test('the bundle exposes two named components through the same metadata resolver used by DSH', () => {
   const entries = bundleEntries()
-  assert.deepEqual(entries.map(entry => entry.name), ['dsh-provider/components/workbuddy', 'dsh-provider/components/codex'])
+  const components = entries.filter(entry => !entry.group)
+  assert.deepEqual(components.map(entry => entry.name), ['dsh-provider/components/workbuddy', 'dsh-provider/components/codex'])
   const script = `
     import { readPluginMeta } from '@deepseek-ai/dsh-app-boot';
-    const entries = ${JSON.stringify(entries)};
+    const entries = ${JSON.stringify(components)};
     console.log(JSON.stringify(entries.map(entry => readPluginMeta(entry.name, ${JSON.stringify(new URL('../package.json', import.meta.url).href)}))));
   `
   const result = spawnSync(process.execPath, ['--expose-internals', '--input-type=module', '-e', script], {
@@ -68,12 +70,12 @@ test('real Loader entries let CodeBuddy and Codex be disabled independently', as
   try {
     await ctx.plugin(LlmRuntime).await()
     await ctx.plugin(Loader, { baseUrl: new URL('../package.json', import.meta.url).href }).await()
-    const entries = bundleEntries().map(entry => ({ ...entry, config: entry.id === 'dsh-provider'
+    const entries = bundleEntries().map(entry => entry.group ? entry : ({ ...entry, config: entry.id === 'dsh-provider'
       ? { workbuddy: { mode: 'workbuddy', workbuddyRegion: 'intl', contextWindow: 'max' } }
       : { codexHome: CODEX_TEST_HOME } }))
     await ctx.loader.root.update(entries)
     await ctx.loader.await()
-    assert.equal([...ctx.loader.entries()].length, 2)
+    assert.equal([...ctx.loader.entries()].filter(entry => !entry.options.group).length, 2)
     assert.deepEqual(ctx.llm.listProviders().map(provider => provider.id).sort(), ['codex', 'workbuddy'])
     const workbuddy = ctx.loader.resolve('dsh-provider')
     const codex = ctx.loader.resolve('dsh-provider-codex')
@@ -90,5 +92,33 @@ test('real Loader entries let CodeBuddy and Codex be disabled independently', as
     await ctx.loader.await()
     assert.deepEqual(ctx.llm.listProviders().map(provider => provider.id), ['codex'])
     assert.equal(ctx.get('workbuddyProvider'), undefined)
+  } finally { await ctx.fiber.dispose() }
+})
+
+test('the real browser registry discovers the shared settings bundle while providers remain independent', async () => {
+  const ctx = new Context()
+  try {
+    await ctx.plugin(LlmRuntime).await()
+    await ctx.plugin(Loader, { baseUrl: new URL('../package.json', import.meta.url).href }).await()
+    const entries = bundleEntries().map(entry => entry.group ? entry : ({ ...entry, config: entry.id === 'dsh-provider'
+      ? { workbuddy: {} } : { codexHome: CODEX_TEST_HOME } }))
+    await ctx.loader.root.update(entries)
+    await ctx.loader.await()
+    await ctx.plugin(ClientModuleRegistry).await()
+    const graph = ctx.clientModules.graph()
+    assert.deepEqual(graph.entries.map(entry => entry.id), ['dsh-provider'])
+    assert.equal(ctx.clientModules.clientPath('dsh-provider'), fileURLToPath(new URL('../lib/client.js', import.meta.url)))
+    const response = await ctx.clientModules.fetchBundle(new Request(new URL(graph.batches[0].url, 'http://localhost/')))
+    assert.equal(response.status, 200)
+    const source = await response.text()
+    assert.match(source, /workbuddy-component-settings/)
+    assert.match(source, /codex-component-settings/)
+    await ctx.loader.resolve('dsh-provider-codex').update({ disabled: true })
+    await ctx.loader.await()
+    assert.deepEqual(ctx.clientModules.graph().entries.map(entry => entry.id), ['dsh-provider'])
+    assert.deepEqual(ctx.llm.listProviders().map(provider => provider.id), ['workbuddy'])
+    ctx.loader.remove('dsh-provider-client')
+    await ctx.loader.await()
+    assert.deepEqual(ctx.clientModules.graph().entries, [])
   } finally { await ctx.fiber.dispose() }
 })

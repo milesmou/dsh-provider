@@ -1,6 +1,6 @@
 {
   "name": "dsh-provider",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Component-based model providers for DeepSeek Harness, with WorkBuddy and Codex support.",
   "repository": {
     "type": "git",
@@ -85,6 +85,7 @@
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.5",
+    "@deepseek-ai/cordis-plugin-loader": "~1.0.6",
     "@deepseek-ai/dsh-atomic-write": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-credentials": "^0.2.1-rc.2",
     "@deepseek-ai/dsh-home-paths": "^0.2.1-rc.2",
@@ -103,6 +104,7 @@
     "@deepseek-ai/dsh-app-boot": "0.2.1-rc.2",
     "@deepseek-ai/dsh-atomic-write": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-locale": "0.2.1-rc.2",
+    "@deepseek-ai/dsh-client-modules": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-renderer": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-settings-models": "0.2.1-rc.2",
     "@deepseek-ai/dsh-client-ui-slots": "0.2.1-rc.2",

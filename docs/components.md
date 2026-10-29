@@ -1,10 +1,10 @@
 # Components
 
-`dsh-provider` is the installable DSH bundle. Its `cordis.patch.yml` declares **two Loader entries**, which DSH lists as **CodeBuddy** and **Codex** with separate enable switches. CodeBuddy owns WorkBuddy sign-in and CodeBuddy API-key access. Codex owns local ChatGPT sign-in and the Codex Responses route.
+`dsh-provider` is the installable DSH bundle. Its `cordis.patch.yml` declares **two provider components**, which DSH lists as **CodeBuddy** and **Codex** with separate enable switches, plus a shared browser-loading group. CodeBuddy owns WorkBuddy sign-in and CodeBuddy API-key access. Codex owns local ChatGPT sign-in and the Codex Responses route.
 
 ```text
 src/
-  index.ts                  # Legacy package-root alias for CodeBuddy
+  index.ts                  # Shared browser-loading group and legacy CodeBuddy alias
   config.ts                 # Original namespaced CodeBuddy configuration
   client/index.tsx          # Client component composition
   remote.ts                 # Package-wide Typert manifest
@@ -31,7 +31,9 @@ test/
 
 To add another Agent, create a sibling under `src/components/`, export its Host schema and lifecycle through a package subpath, and insert a separate entry in `cordis.patch.yml`. A nested `ctx.plugin()` alone is not a separately manageable component in DSH's plugin inventory. Export `<component subpath>/locale/*.json` with component-specific `meta.title` and `meta.description`; the bundle's root locale remains the package description. Register its Client in `src/client/index.tsx` and aggregate its Remote descriptors in `src/remote.ts`. Use its own route, credential keys, Remote namespace and settings slot ID. Every Remote descriptor must name the owning npm package, `dsh-provider`.
 
-CodeBuddy retains the Loader entry id and settings namespace `dsh-provider`, with values under `workbuddy`; its module name is `dsh-provider/components/workbuddy`. This preserves the original account, context-window preferences and credential keys. The package root remains a CodeBuddy-only compatibility alias. Codex uses its own Loader id/settings namespace `dsh-provider-codex` and module `dsh-provider/components/codex`. Disabling either component disposes only its own routes and controller. Disabling the bundle disposes both.
+CodeBuddy retains the Loader entry id and settings namespace `dsh-provider`, with values under `workbuddy`; its module name is `dsh-provider/components/workbuddy`. This preserves the original account, context-window preferences and credential keys. Codex uses its own Loader id/settings namespace `dsh-provider-codex` and module `dsh-provider/components/codex`. Disabling either component disposes only its own routes and controller. Disabling the bundle disposes both.
+
+DSH's browser-module registry only discovers package-root Loader names, so the bundle also inserts `dsh-provider-client`, an empty group with `name: dsh-provider`. Groups do not appear as provider components in the plugin inventory. This root entry loads the existing shared `./client` bundle once; each settings card still follows the availability of its own Host Remote. When mounted as a group, the package root creates an empty Cordis group; ordinary entries retain the original CodeBuddy compatibility behavior. Keep this root group when adding more subpath components, or the model-settings cards will disappear even though the Host components run.
 
 WorkBuddy's chat requests are shaped before they leave the component, following [magpie](https://github.com/yetone/magpie)'s WorkBuddy package: `shaping.ts` rewrites the client identity lines WorkBuddy refuses, moves a refused system prompt into the first user message once, and normalizes the request spellings WorkBuddy's chat endpoint takes; `tool-schema.ts` mends tool schemas (unions, enums, boolean subschemas, tuples, `$ref`) and makes tool names acceptable, mapping the model's calls back to DSH's names. `adapter.ts` applies each repair once per adapter run and remembers it, so later requests go out repaired from the start.
 

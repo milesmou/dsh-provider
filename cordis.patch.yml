@@ -1,4 +1,9 @@
 - insert:
+    # DSH scans package roots for browser bundles. This empty group carries the
+    # shared UI without adding a third provider to the component inventory.
+    - id: dsh-provider-client
+      name: dsh-provider
+      group: true
     - id: dsh-provider
       name: dsh-provider/components/workbuddy
     - id: dsh-provider-codex
