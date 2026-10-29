@@ -1,6 +1,6 @@
 # Components
 
-`dsh-provider` is the installable DSH plugin. Each supported Agent lives in its own component. WorkBuddy is the first component and owns both WorkBuddy sign-in and CodeBuddy API-key access.
+`dsh-provider` is the installable DSH plugin. Each supported Agent lives in its own component. WorkBuddy owns WorkBuddy sign-in and CodeBuddy API-key access. Codex owns local ChatGPT sign-in and the Codex Responses route.
 
 ```text
 src/
@@ -34,3 +34,7 @@ WorkBuddy's chat requests are shaped before they leave the component, following 
 WorkBuddy owns the `workbuddy` model route. Its API-key storage reference is `DSH_PROVIDER_WORKBUDDY_API_KEY`, and its browser logins use `dsh-provider/workbuddy-cn` or `dsh-provider/workbuddy-intl`. These keys are isolated from other components and do not enable environment-variable authentication.
 
 `npm run build` cleans only the generated `lib/` directory before rebuilding, so moved or removed components cannot leave stale modules in published packages. Commit the generated output because Git-hosted installation must not require build scripts.
+
+`src/components/codex/` owns the `codex` configuration node and model route, the `codexProvider` Remote namespace, and the `codex` settings slot. `session.ts` reads the selected Codex home's `auth.json` without exporting secrets to the client or modifying the file. `catalog.ts` discovers models from Codex's cache and live account directory. `adapter.ts` maps Responses events to DSH blocks and stores encrypted reasoning in per-block replay metadata. `messages.ts` sends full history, including function calls/results and same-model reasoning, on every request. It only declares tools for DSH to execute; it does not start a separate Codex agent loop.
+
+Codex credentials are independent of DSH's WorkBuddy credential keys. `codexHome` overrides the launch environment's `CODEX_HOME`, then defaults to `~/.codex`. Token renewal remains owned by the local Codex client; expired or keychain-only credentials produce an actionable settings diagnostic.

@@ -1,4 +1,4 @@
-import '../../../harness-setup.mjs'
+import { CODEX_TEST_HOME } from '../../../harness-setup.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -228,7 +228,7 @@ test('actual Cordis lifecycle registers models and disposes the provider', async
   ctx.provide('launchEnvironment')
   ctx.set('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: {} }]))
   const llmFiber = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(plugin, { workbuddy: {} })
+  const fiber = ctx.plugin(plugin, { workbuddy: {}, codex: { codexHome: CODEX_TEST_HOME } })
   await llmFiber.await()
   await fiber.await()
   try {

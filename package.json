@@ -1,7 +1,7 @@
 {
   "name": "dsh-provider",
   "version": "0.3.3",
-  "description": "Component-based model providers for DeepSeek Harness, starting with WorkBuddy.",
+  "description": "Component-based model providers for DeepSeek Harness, with WorkBuddy and Codex support.",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/milesmou/dsh-provider.git"
@@ -28,6 +28,10 @@
     "./components/workbuddy": {
       "types": "./lib/components/workbuddy/index.d.ts",
       "default": "./lib/components/workbuddy/index.js"
+    },
+    "./components/codex": {
+      "types": "./lib/components/codex/index.d.ts",
+      "default": "./lib/components/codex/index.js"
     }
   },
   "files": [
@@ -45,6 +49,7 @@
     "deepseek-harness",
     "workbuddy",
     "codebuddy",
+    "codex",
     "llm"
   ],
   "engines": {

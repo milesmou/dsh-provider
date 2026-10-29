@@ -1,0 +1,44 @@
+import { useEffect, useState } from 'react'
+import type { ControlAction, ControlReply } from '../remote.js'
+
+export interface CodexActions { command(action: ControlAction): Promise<ControlReply> }
+
+export function CodexCard({ actions }: { actions: CodexActions }) {
+  const [status, setStatus] = useState<ControlReply>()
+  const [busy, setBusy] = useState(false)
+  const [issue, setIssue] = useState('')
+  useEffect(() => {
+    let live = true
+    void actions.command('status').then(value => { if (live) setStatus(value) }, () => {
+      if (live) setIssue('读取 Codex 状态失败，请关闭设置后重试。')
+    })
+    return () => { live = false }
+  }, [actions])
+
+  async function refresh() {
+    if (busy) return
+    setBusy(true); setIssue('')
+    try { setStatus(await actions.command('refresh')) }
+    catch { setIssue('刷新 Codex 失败，请稍后重试。') }
+    finally { setBusy(false) }
+  }
+
+  return <section aria-label="Codex 组件" style={{ borderTop: '1px solid color-mix(in srgb, currentColor 20%, transparent)', marginTop: 24, paddingTop: 20, display: 'grid', gap: 12 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <strong>Codex 组件</strong>
+      <span style={{ fontSize: 12, opacity: 0.7 }}>{!status ? '读取中…' : status.configured ? '已读取本机登录态' : '未登录'}</span>
+    </div>
+    <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, opacity: 0.8 }}>
+      使用本机 Codex 的 ChatGPT 登录态，无需填写 API Key。请先运行 <code>codex login</code> 完成登录，再刷新此组件。
+      凭据和模型缓存默认从 <code>~/.codex</code> 读取，也支持 <code>CODEX_HOME</code>。
+    </p>
+    {status ? <p style={{ margin: 0, fontSize: 12 }}>
+      已发现 {status.models} 个模型{status.source === 'cache' ? '（本机缓存）' : status.source === 'live' ? '（在线目录）' : ''}，可在对话模型选择器中选择 Codex。
+    </p> : null}
+    <div><button type="button" disabled={busy} onClick={() => { void refresh() }} style={{ font: 'inherit', color: 'inherit',
+      background: 'transparent', border: '1px solid color-mix(in srgb, currentColor 25%, transparent)', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' }}>
+      {busy ? '刷新中…' : '刷新登录态和模型'}
+    </button></div>
+    {issue || status?.issue ? <p role="alert" style={{ margin: 0, fontSize: 12, lineHeight: 1.7 }}>{issue || status?.issue}</p> : null}
+  </section>
+}

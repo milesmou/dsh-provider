@@ -12,3 +12,7 @@
       includeUsage: true
       # Models are discovered automatically from the selected account; there is
       # no manual model list to configure.
+    codex:
+      # Local ChatGPT sign-in from CODEX_HOME, or ~/.codex by default.
+      # codexHome: /path/to/.codex
+      timeoutMs: 180000

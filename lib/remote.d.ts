@@ -3,7 +3,7 @@ export declare const TYPERT: {
     package: string;
     face: string;
     schemas: never[];
-    readonly invocations: readonly import("@deepseek-ai/dsh-typert-protocol").InvocationDescriptor[];
+    readonly invocations: import("@deepseek-ai/dsh-typert-protocol").InvocationDescriptor[];
     model: {
         services: never[];
         events: never[];

@@ -1,4 +1,4 @@
-import '../../../harness-setup.mjs'
+import { CODEX_TEST_HOME } from '../../../harness-setup.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -192,7 +192,7 @@ test('DSH startup, credential save, and disposal update the real model registry'
   const runtime = ctx.plugin(LlmRuntime)
   await runtime.await()
   const interval = t.mock.method(globalThis, 'setInterval')
-  const fiber = ctx.plugin(plugin, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` } })
+  const fiber = ctx.plugin(plugin, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` }, codex: { codexHome: CODEX_TEST_HOME } })
   await fiber.await()
   t.after(() => ctx.fiber.dispose())
   assert.deepEqual((await ctx.llm.listModels('workbuddy')).map(model => model.id), ['auto'])

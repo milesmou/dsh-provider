@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "dsh-provider",
-    "description": "以组件形式接入模型服务，当前支持 WorkBuddy 登录和 CodeBuddy API。"
+    "description": "以组件形式接入模型服务，支持 WorkBuddy 登录、CodeBuddy API 和 Codex 本机登录。"
   }
 }

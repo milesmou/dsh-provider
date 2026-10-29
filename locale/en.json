@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "dsh-provider",
-    "description": "Component-based model providers, with WorkBuddy sign-in and CodeBuddy API support."
+    "description": "Component-based model providers with WorkBuddy sign-in, CodeBuddy API and local Codex sign-in."
   }
 }

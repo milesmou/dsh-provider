@@ -1,4 +1,4 @@
-import '../../../harness-setup.mjs'
+import { CODEX_TEST_HOME } from '../../../harness-setup.mjs'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { createServer } from 'node:http'
@@ -46,7 +46,7 @@ test('saved credential changes reach the next model request without a plugin res
   } })
   ctx.provide('launchEnvironment', createLaunchEnvironmentSnapshot([{ source: 'process', values: { DSH_PROVIDER_WORKBUDDY_API_KEY: 'ck_stale_ambient' } }]))
   const runtime = ctx.plugin(LlmRuntime)
-  const fiber = ctx.plugin(host, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` } })
+  const fiber = ctx.plugin(host, { workbuddy: { baseURL: `http://127.0.0.1:${server.address().port}/v2` }, codex: { codexHome: CODEX_TEST_HOME } })
   await runtime.await()
   await fiber.await()
   const uid = fiber.uid
@@ -117,7 +117,7 @@ async function clientFixture({ configured = false, writable = true, writeRefused
     slots: {
       inject: (slot, register) => { register() },
       register: (options, card) => {
-        if (options.name === 'settings.models.footer') { registration = options; component = card }
+        if (options.name === 'settings.models.footer' && options.id === 'workbuddy') { registration = options; component = card }
         return () => {}
       },
     },
